@@ -1,0 +1,20 @@
+0. Performance issue
+
+Existing for time bin/chericat print-pointer:
+       12.33 real         1.68 user         2.62 sys
+
+1. crash if -s followed by an invalid pid
+
+2. issues only occur with -O2 compiler flag: 
+
+with -O0:
+$ bin/chericat -s dv
+ptrace attach failed: Operation not permitted 1
+ptrace hasn't ended gracefully: Operation not permitted 1
+ptrace detach failed: Operation not permitted 1
+
+with -O2:
+$ bin/chericat -s dv
+ptrace attach failed: Operation not permitted 1
+SQL error: near ";": syntax error (db: chericat.db)
+In-address space security exception (core dumped)
