@@ -86,7 +86,6 @@ main(int argc, char *argv[])
 			puts("Summary view of symbols\n");
 	       		break;
 		case 'd':
-			printf("Adding database name %s (sizeof optarg: %lu)\n", optarg, strlen(optarg));
 			dbname = (char*)malloc(strlen(optarg)+1);
 			strcpy(dbname, optarg);
 			break;

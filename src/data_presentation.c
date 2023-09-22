@@ -152,35 +152,45 @@ void vm_caps_view() {
 
 	if (rc == 0) {
 		xo_open_instance("vm_cap_output");
-		xo_emit("{T:/%s %*s %*s %5-s %*s %4s %5s %5s}\n",
-			"DB", (sizeof(void*)+10), "START", (sizeof(void*)+4), "END", "PATH", 32, "CAP(RATIO)", "R", "W", "X");
+		int dbname_len = strlen(get_dbname());
+		for (int l=0; l<dbname_len+4; l++) {	
+			xo_emit("{:/=}");
+		}
+		xo_emit("{:/\n* %s *\n}", get_dbname());
+		for (int l=0; l<dbname_len+4; l++) {	
+			xo_emit("{:/=}");
+		}
+
+		xo_emit("{T:/\n%28-s %20-s %16-s %16-s %16-s %5s %5s %5s}\n",
+			"PATH", "START", "END", "IN CAP(RATIO)", "OUT CAP(RATIO)", "R", "W", "X");
 	
 		for (int i=0; i<all_vm_info_index; i++) {
-			xo_emit("{:db_name/%s} ", get_dbname());
-			xo_emit("{:mmap_start_addr/%20s} ", all_vm_info[i].start_addr);
-			xo_emit("{:mmap_end_addr/%20s} ", all_vm_info[i].end_addr);
 			char *filename = (char*)malloc(sizeof(all_vm_info[i].mmap_path));
 			get_filename_from_path(all_vm_info[i].mmap_path, &filename);
-			xo_emit("{:mmap_path/%*-s} ", 20, filename);
+			xo_emit("{:mmap_path/%28-s} ", filename);
 
+			xo_emit("{:mmap_start_addr/%20-s} ", all_vm_info[i].start_addr);
+			xo_emit("{:mmap_end_addr/%16-s} ", all_vm_info[i].end_addr);
+			
 			uintptr_t start_addr = (uintptr_t)strtol(all_vm_info[i].start_addr, NULL, 0);
 		       	uintptr_t end_addr = (uintptr_t)strtol(all_vm_info[i].end_addr, NULL, 0);
 		
-			int cap_count=0;
+			int out_cap_count=0;
+			int in_cap_count=0;
 			int r_count=0;
 			int w_count=0;
 			int x_count=0;
 
 			for (int j=0; j<all_cap_info_index; j++) {
 				uintptr_t cap_self_addr = (uintptr_t)strtol(all_cap_info[j].cap_self_addr, NULL, 0);
+				uintptr_t cap_addr = (uintptr_t)strtol(all_cap_info[j].cap_addr, NULL, 0);
+
+				if (cap_addr >= start_addr && cap_addr <= end_addr) {
+					in_cap_count++;
+				}
 
 				if (cap_self_addr >= start_addr && cap_self_addr <= end_addr) {
-					/*printf("Bingo! %p, %p, %p\n", cap_self_addr, start_addr, end_addr);
-					printf("     cap_addr: %s\n", all_cap_info[j].cap_addr);
-					printf("     base: %s\n", all_cap_info[j].base);
-					printf("     top: %s\n", all_cap_info[j].top);
-					*/
-					cap_count++;
+					out_cap_count++;
 					if (strchr(all_cap_info[j].perms, 'r') != NULL) {
 						r_count++;
 					}
@@ -192,15 +202,22 @@ void vm_caps_view() {
 					}
 				}
 			}
-			xo_emit("{:cap_count/%*d(%.2f%%)} ", 
-				10,
-				cap_count, 
-				((float)cap_count/all_cap_info_index)*100); 
+			char *out_cap_count_str;
+			asprintf(&out_cap_count_str, "%d(%.2f%%)", 
+				out_cap_count, ((float)out_cap_count/all_cap_info_index)*100);
 
+			char *in_cap_count_str;
+			asprintf(&in_cap_count_str, "%d(%.2f%%)",
+				in_cap_count, ((float)in_cap_count/all_cap_info_index)*100);
+
+			xo_emit("{:in_cap_count/%16-s} ", in_cap_count_str);
+			xo_emit("{:out_cap_count/%16-s} ", out_cap_count_str);
 			xo_emit("{:r_count/%5d} ", r_count);
 			xo_emit("{:w_count/%5d} ", w_count);
 			xo_emit("{:x_count/%5d}\n", x_count);
 
+			free(in_cap_count_str);
+			free(out_cap_count_str);
 			free(all_vm_info[i].start_addr);
 			free(all_vm_info[i].end_addr);
 			free(all_vm_info[i].mmap_path);
