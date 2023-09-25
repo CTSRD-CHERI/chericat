@@ -83,8 +83,10 @@ main(int argc, char *argv[])
 			printf("View of caps within address range of library %s\n", optarg);
 			break;
 		case 'm':
-			puts("Summary view of symbols\n");
-	       		break;
+	       		xo_open_list("cap_sym_output");
+			cap_sym_view();
+			xo_close_list("cap_sym_output");
+			break;
 		case 'd':
 			dbname = (char*)malloc(strlen(optarg)+1);
 			strcpy(dbname, optarg);

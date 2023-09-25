@@ -156,7 +156,7 @@ void get_tags(int pid, u_long start, Vm_cap_info_struct *vm_cap_info)
 			char *query;
 			asprintf(&query, "%s %s;", query_hdr, insert_cap_query_values);
 	
-			int db_rc = sql_query_exec(query, NULL);
+			int db_rc = sql_query_exec(query, NULL, NULL);
 			debug_print(TROUBLESHOOT, "Key Stage: Inserted vm entry info to the database (rc=%d)\n", db_rc);
 			free(query);
 			free(insert_cap_query_values);

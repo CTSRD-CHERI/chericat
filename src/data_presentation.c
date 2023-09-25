@@ -21,6 +21,17 @@ typedef struct cap_info_struct {
 	char *top;
 } cap_info;
 
+typedef struct sym_info_struct {
+	char *source_path;
+	char *sym_name;
+	char *sym_offset;
+	char *sym_type;
+	char *shndx;
+	char *type;
+	char *bind;
+	char *addr;
+} sym_info;
+
 vm_info *all_vm_info;
 cap_info *all_cap_info;
 
@@ -39,8 +50,8 @@ int vm_count, cap_count;
  */
 static int vm_query_callback(void *NotUsed, int argc, char **argv, char **azColName)
 {
-	/* Database schema for vm has 4 columns */
-	assert(argc == 4);
+	/* Database schema for vm has 3 columns */
+	assert(argc == 3);
 
 	vm_info vm_info;
 	vm_info.start_addr = strdup(argv[0]);
@@ -53,7 +64,7 @@ static int vm_query_callback(void *NotUsed, int argc, char **argv, char **azColN
 }
 
 /*
- * caps_query_callback
+ * cap_info_query_callback
  * SQLite callback routine to traverse results from sqlite_exec()
  * using: "SELECT * FROM cap_info;"
  * Results are formatted into: cap_self_addr, cap_addr, perms, base, top
@@ -75,6 +86,28 @@ static int cap_info_query_callback(void *NotUsed, int argc, char **argv, char **
 
 	all_cap_info[all_cap_info_index++] = cap_info;
     	
+	return 0;
+}
+
+/*
+ * sym_name_query_callback
+ * SQLite callback routine to traverse results from sqlite_exec()
+ * using: "SELECT st_name FROM elf_sym where addr == cap;"
+ * Results are formatted into: sym_name
+ *
+ * sym_name - to store the pointer result to the symbol name string from the query
+ * argc - number of columns
+ * argv - pointer to the data that is stored in each column
+ * azColName - pointer to the colunmn names
+ */
+
+static int sym_name_query_callback(void *sym_name, int argc, char **argv, char **azColName)
+{
+	char **result_ptr = (char **)sym_name;
+	if (argc >= 0) {
+		*result_ptr = (char*)calloc(strlen(argv[0])+1, sizeof(char));
+		strcpy(*result_ptr, argv[0]);
+	}
 	return 0;
 }
 
@@ -120,10 +153,8 @@ static void get_filename_from_path(char *path, char **filename) {
 void vm_caps_view() {
 	/* Obtain how many vm items from the database first, we can then use it to 
 	 * determine the size of the struct array for holding all the vm entries */
-	char *get_vm_count_query = strdup("SELECT COUNT(*) FROM vm;");
-	int rc = sql_query_exec(get_vm_count_query, get_vm_count_query_callback); 
+	int rc = sql_query_exec("SELECT COUNT(*) FROM vm;", get_vm_count_query_callback, NULL); 
 	assert(rc == 0);
-	free(get_vm_count_query);
 
 	/* Initialise all_vm_info struct to hold the values obtained from SQL query */
 	all_vm_info = calloc(vm_count+1, sizeof(vm_info));
@@ -131,15 +162,12 @@ void vm_caps_view() {
 	
 	all_vm_info_index = 0;
 		
-	char *select_vm_query = strdup("SELECT * FROM vm;");          
-	rc = rc & sql_query_exec(select_vm_query, vm_query_callback);
+	rc = rc & sql_query_exec("SELECT * FROM vm;", vm_query_callback, NULL);
 
 	/* Obtain how many cap_info items from the database first, we can then use it to 
 	 * determine the size of the struct array for holding all the vm entries */
-	char *get_cap_info_count_query = strdup("SELECT COUNT(*) FROM cap_info;");
-	rc = rc & sql_query_exec(get_cap_info_count_query, get_cap_info_count_query_callback); 
+	rc = rc & sql_query_exec("SELECT COUNT(*) FROM cap_info;", get_cap_info_count_query_callback, NULL); 
 	assert(rc == 0);
-	free(get_cap_info_count_query);
 
 	/* Initialise all_cap_info struct to hold the values obtained from the SQL query */
 	all_cap_info = calloc(cap_count+1, sizeof(cap_info));
@@ -147,18 +175,17 @@ void vm_caps_view() {
 	
 	all_cap_info_index = 0;
 
-	char *select_cap_query = strdup("SELECT * FROM cap_info;");
-	rc &= sql_query_exec(select_cap_query, cap_info_query_callback);
+	rc &= sql_query_exec("SELECT * FROM cap_info;", cap_info_query_callback, NULL);
 
 	if (rc == 0) {
 		xo_open_instance("vm_cap_output");
 		int dbname_len = strlen(get_dbname());
 		for (int l=0; l<dbname_len+4; l++) {	
-			xo_emit("{:/=}");
+			xo_emit("{:/-}");
 		}
-		xo_emit("{:/\n* %s *\n}", get_dbname());
+		xo_emit("{:/\n %s \n}", get_dbname());
 		for (int l=0; l<dbname_len+4; l++) {	
-			xo_emit("{:/=}");
+			xo_emit("{:/-}");
 		}
 
 		xo_emit("{T:/\n%28-s %20-s %16-s %16-s %16-s %5s %5s %5s}\n",
@@ -229,12 +256,105 @@ void vm_caps_view() {
 		      	free(all_cap_info[k].base);
                         free(all_cap_info[k].top);
 		}
-		free(select_vm_query);
-		free(all_vm_info);
-		free(select_cap_query);
-		free(all_cap_info);
 		xo_close_instance("vm_cap_output");
 	}
+	free(all_vm_info);
+	free(all_cap_info);
 
+}
+
+/*
+ * cap_sym_view
+ * SQLite callback routine to traverse results from sqlite_exec()
+ * using:
+ * 
+ * 1. "SELECT * FROM cap_info;"
+ * Results are formatted into: cap_self_addr, cap_addr, perms, base, top
+ *
+ * 2. "SELECT st_name FROM elf_sym WHERE addr == cap_self_addr;"
+ * Results are added: cap_loc_sym
+ *
+ * 3. "SELECT st_name FROM elf_sym WHERE addr == cap_addr;"
+ * Results are added: cap_sym
+ * 
+ */
+void cap_sym_view() {
+
+	/* Obtain how many cap_info items from the database first, we can then use it to 
+	 * determine the size of the struct array for holding all the vm entries */
+	int rc = sql_query_exec("SELECT COUNT(*) FROM cap_info;", get_cap_info_count_query_callback, NULL); 
+	assert(rc == 0);
+
+	/* Initialise all_cap_info struct to hold the values obtained from the SQL query */
+	all_cap_info = calloc(cap_count+1, sizeof(cap_info));
+	assert(all_cap_info != NULL);
+	
+	all_cap_info_index = 0;
+
+	rc &= sql_query_exec("SELECT * FROM cap_info;", cap_info_query_callback, NULL);
+
+	if (rc == 0) {
+		xo_open_instance("cap_sym_output");
+		int dbname_len = strlen(get_dbname());
+		for (int l=0; l<dbname_len+30; l++) {	
+			xo_emit("{:/-}");
+		}
+		xo_emit("{:/\n%s - total number of caps: %d\n}", get_dbname(), all_cap_info_index);
+		for (int l=0; l<dbname_len+30; l++) {	
+			xo_emit("{:/-}");
+		}
+
+		xo_emit("{T:/\n%4-s %17-s %39-s %54-s %10-s}\n",
+			"#", "CAP", "CAP_SYM", "CAP_INFO", "CAP_SELF_SYM");
+	
+		for (int i=0; i<all_cap_info_index; i++) {
+			char *get_sym_name_query=NULL;
+			char *sym_name_for_cap_self=NULL;
+
+			asprintf(&get_sym_name_query, "SELECT st_name FROM elf_sym WHERE addr = \"%s\";", all_cap_info[i].cap_addr);
+			sql_query_exec(get_sym_name_query, sym_name_query_callback, &sym_name_for_cap_self);
+			
+			free(get_sym_name_query);
+
+			if (sym_name_for_cap_self != NULL) {
+				xo_emit("{:num/%5-d}", i);
+				xo_emit("{:cap_loc/%18-s}", all_cap_info[i].cap_self_addr);
+				xo_emit("{:loc_sym/%40-s}", sym_name_for_cap_self);
+				free(sym_name_for_cap_self);
+		
+				char *cap_info = NULL;
+				asprintf(&cap_info, "%s (%s,%s-%s)", 
+						all_cap_info[i].cap_addr, 
+						all_cap_info[i].perms,
+						all_cap_info[i].base,
+						all_cap_info[i].top);
+				xo_emit("{:cap_info/%55-s}", cap_info);
+	
+				free(cap_info);
+
+				char *get_sym_for_cap_query=NULL;
+				char *sym_name_for_cap=NULL;
+				asprintf(&get_sym_for_cap_query, "SELECT st_name FROM elf_sym WHERE addr = \"%s\";", all_cap_info[i].cap_self_addr);
+				sql_query_exec(get_sym_for_cap_query, sym_name_query_callback, &sym_name_for_cap);
+				free(get_sym_for_cap_query);
+					
+				if (sym_name_for_cap != NULL) {
+					xo_emit("{:loc_sym/%16-s\n}", sym_name_for_cap);
+					free(sym_name_for_cap);
+				} else {
+					xo_emit("{:loc_sym/%16-s\n}", "SYM_NOT_FOUND");
+				}
+
+				free(all_cap_info[i].cap_addr);
+				free(all_cap_info[i].perms);
+				free(all_cap_info[i].base);
+				free(all_cap_info[i].top);
+			}
+
+		}
+		xo_close_instance("cap_sym_output");
+	}
+
+	free(all_cap_info);
 }
 

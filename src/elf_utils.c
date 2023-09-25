@@ -131,7 +131,7 @@ Elf *read_elf(char *path) {
 	return elfFile;
 }
 
-void get_elf_info(Elf *elfFile, char *source) 
+void get_elf_info(Elf *elfFile, char *source, u_long source_base) 
 {
 	debug_print(TROUBLESHOOT, "Key Stage: Create database and tables to store symbols obtained from ELF of the loaded binaries\n", NULL);
 	create_elf_sym_db();
@@ -158,8 +158,6 @@ void get_elf_info(Elf *elfFile, char *source)
 	while ((scn = elf_nextscn(elfFile, scn)) != NULL) {
 		gelf_getshdr(scn, &shdr);
 		if (shdr.sh_type == SHT_DYNSYM || shdr.sh_type == SHT_SYMTAB) {
-		//	break;
-	
 			if (shdr.sh_type == SHT_DYNSYM) {
 				seen_dynsym = 1;
 			}
@@ -172,24 +170,23 @@ void get_elf_info(Elf *elfFile, char *source)
 			assert(data != NULL);
 
 			for (int i=0; gelf_getsym(data, i, &sym) != NULL; i++) {
-				//if (GELF_ST_TYPE(sym.st_info) != STT_FUNC || GELF_ST_BIND(sym.st_info) != STB_GLOBAL) {
-				//if (GELF_ST_BIND(sym.st_info) != STB_GLOBAL) {
-				//	continue;
-				//}
 				symname = elf_strptr(elfFile, strscnidx, sym.st_name);
 				if (symname == NULL) {
 					continue;
 				} else {
+					// Calculate and store the address of the symbol using the base and offset
+					u_long offset = sym.st_value;
+
 					char* query_value;
 					asprintf(&query_value, 
-						"(\"%s\", \"%s\", \"0x%lx\", \"%3s\", \"%s\", \"%s\", %d)", 
+						"(\"%s\", \"%s\", \"0x%lx\", \"%3s\", \"%s\", \"%s\", \"0x%lx\")", 
 							source,
 							symname,
 							sym.st_value,
 							st_shndx(sym.st_shndx),
 							st_type(ehdr.e_machine, ehdr.e_ident[EI_OSABI], GELF_ST_TYPE(sym.st_info)),
 							st_bind(GELF_ST_BIND(sym.st_info)),
-							i);
+							(source_base+offset));
 					if (query_values_index == 0) {
 						insert_syms_query_values = strdup(query_value);
 					} else {
@@ -217,7 +214,7 @@ void get_elf_info(Elf *elfFile, char *source)
 		char* query;
 		asprintf(&query, "%s%s;", query_hdr, insert_syms_query_values);
 
-		int db_rc = sql_query_exec(query, NULL);
+		int db_rc = sql_query_exec(query, NULL, NULL);
 		debug_print(TROUBLESHOOT, "Key Stage: Inserted sym info to the database (rc=%d)\n", db_rc);
 		free(insert_syms_query_values);
 		free(query);

@@ -36,8 +36,7 @@ int create_vm_cap_db()
 		"CREATE TABLE IF NOT EXISTS vm("
 		"start_addr VARCHAR NOT NULL, "
 		"end_addr VARCHAR NOT NULL, "
-		"mmap_path VARCHAR NOT NULL, "
-		"mmap_cap_info JSON DEFAULT('[]'));";
+		"mmap_path VARCHAR NOT NULL);";
 	
 	char *cap_info_table =
 		"CREATE TABLE IF NOT EXISTS cap_info("
@@ -103,13 +102,11 @@ int create_elf_sym_db()
 		"CREATE TABLE IF NOT EXISTS elf_sym("
 		"source_path VARCHAR NOT NULL, "
 		"st_name VARCHAR NOT NULL, "
-		"st_value VARHAR NOT NULL, "
+		"st_value VARCHAR NOT NULL, "
 		"st_shndx VARCHAR NOT NULL, "
 		"type VARCHAR NOT NULL, "
 		"bind VARCHAR NOT NULL, "
-		"ndx INTEGER NOT NULL);";
-		//"ndx INTEGER NOT NULL, "
-		//"unique (source_path, st_name));";
+		"addr VARCHAR NOT NULL);";
 	
 	exit = sqlite3_open(get_dbname(), &db);
 
@@ -204,7 +201,7 @@ int commit_transaction()
 	return (0);
 }	
 
-int sql_query_exec(char* query, int (*callback)(void*,int,char**,char**))
+int sql_query_exec(char* query, int (*callback)(void*,int,char**,char**), char **data)
 {
 	sqlite3* db;
 	int exit = 0;
@@ -242,14 +239,14 @@ int sql_query_exec(char* query, int (*callback)(void*,int,char**,char**))
 	}
 	*/
 
-	rc = sqlite3_exec(db, query, callback, 0, &messageError);
+	rc = sqlite3_exec(db, query, callback, data, &messageError);
 	if (rc != SQLITE_OK) {
 		fprintf(stderr, "SQL error: %s (db: %s)\n", messageError, get_dbname());
 		sqlite3_free(messageError);
 		sqlite3_close(db);
 		return (1);
 	} else {
-		debug_print(VERBOSE, "Query %s, executed successfully (rc=%d) \n", query, rc);
+		debug_print(TROUBLESHOOT, "Query %s, executed successfully (rc=%d) \n", query, rc);
 	}
 	
 	sqlite3_int64 pCurrent=0, pHighwater=0;

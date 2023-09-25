@@ -57,13 +57,6 @@ void scan_mem(char* arg_pid)
 	debug_print(TROUBLESHOOT, "Key Stage: Start pTrace for request PT_VM_ENTRY\n", NULL);
 
 	char *insert_vm_query_values;
-	/*
-	struct {
-		char *cap_addr;
-		char *start_addr;
-	} update_cap_json_vars[10000];
-	int update_cap_json_vars_count=0;
-	*/
 
 	int count = 0;
 
@@ -131,7 +124,10 @@ void scan_mem(char* arg_pid)
 
 			if (!seen) {
 				seen_paths[seen_index] = strdup(vm_cap_info.path);
-				get_elf_info(read_elf(vm_cap_info.path), vm_cap_info.path);
+				get_elf_info(
+					read_elf(vm_cap_info.path), 
+					vm_cap_info.path,
+					vm_cap_info.start_addr);
 
 				for (int i=0; i<seen_index; i++) {
 					printf("seen_index: %d seen_path[%d]: %s\n", seen_index, i, seen_paths[i]);
@@ -151,32 +147,7 @@ void scan_mem(char* arg_pid)
 		// Divide the vm block into pages, and iterate each page to find the tags that reference each
 		// address within the same page.
 		for (u_long start=ptrace_vm_struct.pve_start; start<ptrace_vm_struct.pve_end; start+=4096) {
-			
 			get_tags(pid, start, &vm_cap_info);
-
-			/*
-			// get_tags would have filled the cap_info and vm_cap_info.cap_count is the number of 
-			// capabilities found. We can now insert cap_info for all the capabilities.
-			if (vm_cap_info.cap_count != 0) {
-				for (int i=0; i<vm_cap_info.cap_count; i++) {
-					asprintf(&update_cap_json_vars[update_cap_json_vars_count].start_addr, 
-							"\"0x%lx\"", 
-							vm_cap_info.start_addr);
-					asprintf(&update_cap_json_vars[update_cap_json_vars_count++].cap_addr, 
-							"\"%p\"", 
-							(void*)vm_cap_info.cap_info[i]->addr_of_cap);
-					//char* insert_cap_ref;
-					//asprintf(&insert_cap_ref, 
-					//	"UPDATE vm SET mmap_cap_info = json_insert(mmap_cap_info, '$[#]', \"%p\") WHERE start_addr=\"0x%lx\"",
-					//	(void*)vm_cap_info.cap_info[i]->addr_of_cap,	
-					//	vm_cap_info.start_addr);
-					//int db_rc = sql_query_exec(insert_cap_ref);
-					//debug_print(TROUBLESHOOT, "Key stage: Inserted vm entry info to the database (rc=%d)\n", db_rc);
-					
-					//free(insert_cap_ref);
-				}
-			}
-			*/
 		}
 		free(vm_cap_info.path);
 		free(vm_cap_info.cap_info);
@@ -193,7 +164,7 @@ void scan_mem(char* arg_pid)
 		char *query;
 		asprintf(&query, "%s%s;", query_hdr, insert_vm_query_values);
 	
-		int db_rc = sql_query_exec(query, NULL);
+		int db_rc = sql_query_exec(query, NULL, NULL);
 		debug_print(TROUBLESHOOT, "Key Stage: Inserted vm entry info to the database (rc=%d)\n", db_rc);
 		free(insert_vm_query_values);
 		free(query);
@@ -239,7 +210,7 @@ void scan_mem(char* arg_pid)
 
 		//printf("FINAL UPDATE QUERY: %s\n", query);
 
-		int db_rc = sql_query_exec(query, NULL);
+		int db_rc = sql_query_exec(query, NULL, NULL);
 		debug_print(TROUBLESHOOT, "Key Stage: Inserted vm entry with cap info to the database (rc=%d)\n", db_rc);
 		free(query);
 		free(when_then_values);
