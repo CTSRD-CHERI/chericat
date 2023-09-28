@@ -25,7 +25,7 @@ static void usage()
 			"Options:\n"
 			"     -s Scan the mapped memory and persist the caps data to a database\n"
 			"     -v Show summary info of capabilities in the target process, arranged in mmap order\n"
-			"     -n Show capabilities in the loaded binary <binary name>\n"
+			//"     -n Show capabilities in the loaded binary <binary name>\n"
 			"     -m Show capabilities with corresponding symbols\n\n");
 }
 
@@ -33,7 +33,7 @@ static struct option long_options[] =
 {
 	{"scan_mem", required_argument, 0, 's'},
 	{"caps_summary", no_argument, 0, 'v'},
-	{"caps_for_lib", required_argument, 0, 'n'},
+	//{"caps_for_lib", required_argument, 0, 'n'},
 	{"symbols_summary", no_argument, 0, 'm'},
 	{"database_name", required_argument, 0, 'd'},
 	{0,0,0,0}
@@ -59,32 +59,65 @@ main(int argc, char *argv[])
 	xo_handle_t *xo_handle = xo_create_to_file(fptr, XO_STYLE_JSON, XOF_WARN|XOF_PRETTY);
 
 	int optindex;
-	int opt = getopt_long(argc, argv, "d:s:vn:m", long_options, &optindex);
+	//int opt = getopt_long(argc, argv, "d:s:vn:m:", long_options, &optindex);
+	int opt = getopt_long(argc, argv, "d:s:vm:", long_options, &optindex);
 
 	if (opt == -1) {
 		usage();
 		return 0;
 	}
 
+	sqlite3 *db = NULL;
+
 	while (opt != -1) {
 		switch (opt)
 		{
 		case 's':
-			scan_mem(optarg);
+			if (db == NULL) {
+        			int rc = sqlite3_open(get_dbname(), &db);
+
+        			if (rc) {
+                			fprintf(stderr, "Error open DB %s", sqlite3_errmsg(db));
+              				sqlite3_close(db);
+               		 		return (1);
+        			}
+			}
+
+			//scan_mem(db, optarg);
+			scan_mem_using_procstat(db, optarg);
 			//read_lwps(optarg);
 			//get_vmmap_from_procstat(optarg);
 			break;
 		case 'v':
+			if (db == NULL) {
+        			int rc = sqlite3_open(get_dbname(), &db);
+
+        			if (rc) {
+                			fprintf(stderr, "Error open DB %s", sqlite3_errmsg(db));
+              				sqlite3_close(db);
+                			return (1);
+        			}
+			}
 			xo_open_list("vm_cap_output");
-			vm_caps_view();
+			vm_caps_view(db);
 			xo_close_list("vm_cap_output");
 			break;
 		case 'n':
 			printf("View of caps within address range of library %s\n", optarg);
 			break;
 		case 'm':
+			if (db == NULL) {
+        			int rc = sqlite3_open(get_dbname(), &db);
+	
+        			if (rc) {
+                			fprintf(stderr, "Error open DB %s", sqlite3_errmsg(db));
+              				sqlite3_close(db);
+                			return (1);
+        			}
+			}
+
 	       		xo_open_list("cap_sym_output");
-			cap_sym_view();
+			cap_sym_view(db, optarg);
 			xo_close_list("cap_sym_output");
 			break;
 		case 'd':
@@ -94,9 +127,13 @@ main(int argc, char *argv[])
 		default:
 			usage();
 		}
-		opt = getopt_long(argc, argv, "d:s:vn:m", long_options, &optindex);
+		//opt = getopt_long(argc, argv, "d:s:vn:m:", long_options, &optindex);
+		opt = getopt_long(argc, argv, "d:s:vm:", long_options, &optindex);
 	}
 
+	if (db != NULL) {
+		sqlite3_close(db);
+	}
         return 0;
 }
 

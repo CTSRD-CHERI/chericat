@@ -16,10 +16,11 @@
 #include "common.h"
 #include "db_process.h"
 #include "cap_capture.h"
+#include "ptrace_utils.h"
 
 /* get_capability
  */
-void get_capability(int pid, void* addr, int current_cap_count, Vm_cap_info_struct *vm_cap_info, char **query_vals)
+void get_capability(int pid, void* addr, int current_cap_count, char *path, char **query_vals)
 {
 	struct ptrace_io_desc piod;
 	char capbuf[sizeof(uintcap_t)+1];
@@ -43,7 +44,7 @@ void get_capability(int pid, void* addr, int current_cap_count, Vm_cap_info_stru
 	uintcap_t copy;
 
 	memcpy(&copy, &capbuf[1], sizeof(copy));
-	vm_cap_info->cap_info[current_cap_count]->addr_at_which_cap_references = copy;
+	//strcpy(cap_info[current_cap_count].cap_addr, copy);
 	debug_print(VERBOSE, "Address of the copied capability: %#p\n", (void*)copy);
 
 	// Getting permissions of the obtained capability
@@ -60,14 +61,14 @@ void get_capability(int pid, void* addr, int current_cap_count, Vm_cap_info_stru
 	debug_print(VERBOSE, "Using strfcap API to parse the cap, tokens: %d permsread: %s base: 0x%lx top: 0x%lx attrread: %31s\n", 
 			tokens, permsread, base, top, attrread);
 
-	vm_cap_info->cap_info[current_cap_count]->perms = malloc(sizeof(char)*strlen(permsread)+1);
-	assert(vm_cap_info->cap_info[current_cap_count]->perms != NULL);
+	//cap_info[current_cap_count].perms = malloc(sizeof(char)*strlen(permsread)+1);
+	//assert(cap_info[current_cap_count].perms != NULL);
 	
-	strcpy(vm_cap_info->cap_info[current_cap_count]->perms, permsread);
+	//strcpy(cap_info[current_cap_count].perms, permsread);
 
 	// Return the captured caps into multiple values to be inserted using a single sql statement
-	int query_size = asprintf(query_vals, "(\"%p\", \"%p\", \"%s\", \"%p\", \"%p\")", 
-					addr, (void*)copy, permsread, (void*)base, (void*)top);
+	int query_size = asprintf(query_vals, "(\"%p\", \"%s\", \"%p\", \"%s\", \"%p\", \"%p\")", 
+					addr, path, (void*)copy, permsread, (void*)base, (void*)top);
 	assert(query_size != -1);
 
         if (retno != 0) {
@@ -80,7 +81,7 @@ void get_capability(int pid, void* addr, int current_cap_count, Vm_cap_info_stru
  * address - u_long start - and find all the marked tags. It stores the found tags'
  * addressed to the vm_cap_info struct along with the capabilities info obtained. 
  */
-void get_tags(int pid, u_long start, Vm_cap_info_struct *vm_cap_info)
+int get_tags(sqlite3 *db, int pid, u_long start, char *path)
 {
         struct ptrace_io_desc piod;
         char tagsbuf[32] = {};
@@ -123,14 +124,14 @@ void get_tags(int pid, u_long start, Vm_cap_info_struct *vm_cap_info)
 					tags = tags >> 1;
 					if (bit) {
 						debug_print(VERBOSE, "Addresses referenced by tags[%d] (cap_count %d): %p\n", j, cap_count, (void*)tags_addr[j]);
-						vm_cap_info->cap_info[cap_count] = malloc(sizeof(uintcap_t) + sizeof(uintcap_t) + sizeof(uintcap_t) + 1);
-						assert(vm_cap_info->cap_info[cap_count] != NULL);
+						//cap_info[cap_count] = (Cap_info_struct)malloc(sizeof(uintcap_t)*2+sizeof(void*)*4+1);
+						//assert(cap_info[cap_count] != NULL);
 
-						vm_cap_info->cap_info[cap_count]->addr_of_cap = (uintptr_t)address;
+						//cap_info[cap_count].cap_loc_addr = (uintptr_t)address;
 						
 						// Now we have enough information to go through each capability to obtain further information about them.
 						char *val;
-						get_capability(pid, (void*)tags_addr[j], cap_count, vm_cap_info, &val);
+						get_capability(pid, (void*)tags_addr[j], cap_count, path, &val);
 						debug_print(VERBOSE, "Obtained cap values: %s\n", val);
 
 						if (insert_cap_query_values == NULL) {
@@ -156,7 +157,7 @@ void get_tags(int pid, u_long start, Vm_cap_info_struct *vm_cap_info)
 			char *query;
 			asprintf(&query, "%s %s;", query_hdr, insert_cap_query_values);
 	
-			int db_rc = sql_query_exec(query, NULL, NULL);
+			int db_rc = sql_query_exec(db, query, NULL, NULL);
 			debug_print(TROUBLESHOOT, "Key Stage: Inserted vm entry info to the database (rc=%d)\n", db_rc);
 			free(query);
 			free(insert_cap_query_values);
@@ -165,24 +166,6 @@ void get_tags(int pid, u_long start, Vm_cap_info_struct *vm_cap_info)
 		// This generates a lot of noise, useful for troubleshooting when needed
 		debug_print(TROUBLESHOOT, "ptrace(PT_IO) for PIOD_READ_CHERI_TAGS returned %d\n", retno);
 	}
-	vm_cap_info->cap_count = cap_count;
-}
-
-void print_vm_block(Vm_cap_info_struct vm_cap_info, xo_handle_t *xop) {
-	xo_emit_h(xop, "{:path/%s}\t{:start_addr/%08lx}\t{:end_addr/%08lx}\n",
-			vm_cap_info.path,
-			vm_cap_info.start_addr,
-			vm_cap_info.end_addr);
-
-	debug_print(1, "***** VM Block for %s *****\n", vm_cap_info.path);
-	debug_print(1, "Start: %016lx\n", vm_cap_info.start_addr);
-	debug_print(1, "End: %016lx\n", vm_cap_info.end_addr);
-	debug_print(1, "No of Capabilities: %d\n", vm_cap_info.cap_count);
-	for (int i=0; i<vm_cap_info.cap_count; i++) {
-		debug_print(1, "     Cap[%d]: addr_of_cap: %p\n", i, (void*)vm_cap_info.cap_info[i]->addr_of_cap);
-		debug_print(1, "     Cap[%d]: addr_at_which_cap_references: %p\n", i, (void*)vm_cap_info.cap_info[i]->addr_at_which_cap_references);
-		debug_print(1, "     Cap[%d]: perms: %s\n", i, vm_cap_info.cap_info[i]->perms);
-	}
-
+	return cap_count;
 }
 

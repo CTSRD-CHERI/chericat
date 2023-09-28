@@ -131,10 +131,10 @@ Elf *read_elf(char *path) {
 	return elfFile;
 }
 
-void get_elf_info(Elf *elfFile, char *source, u_long source_base) 
+void get_elf_info(sqlite3 *db, Elf *elfFile, char *source, u_long source_base) 
 {
 	debug_print(TROUBLESHOOT, "Key Stage: Create database and tables to store symbols obtained from ELF of the loaded binaries\n", NULL);
-	create_elf_sym_db();
+	create_elf_sym_db(db);
 
 	GElf_Ehdr ehdr;
 	GElf_Shdr shdr;
@@ -214,7 +214,7 @@ void get_elf_info(Elf *elfFile, char *source, u_long source_base)
 		char* query;
 		asprintf(&query, "%s%s;", query_hdr, insert_syms_query_values);
 
-		int db_rc = sql_query_exec(query, NULL, NULL);
+		int db_rc = sql_query_exec(db, query, NULL, NULL);
 		debug_print(TROUBLESHOOT, "Key Stage: Inserted sym info to the database (rc=%d)\n", db_rc);
 		free(insert_syms_query_values);
 		free(query);
