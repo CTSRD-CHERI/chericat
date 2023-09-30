@@ -124,11 +124,6 @@ int get_tags(sqlite3 *db, int pid, u_long start, char *path)
 					tags = tags >> 1;
 					if (bit) {
 						debug_print(VERBOSE, "Addresses referenced by tags[%d] (cap_count %d): %p\n", j, cap_count, (void*)tags_addr[j]);
-						//cap_info[cap_count] = (Cap_info_struct)malloc(sizeof(uintcap_t)*2+sizeof(void*)*4+1);
-						//assert(cap_info[cap_count] != NULL);
-
-						//cap_info[cap_count].cap_loc_addr = (uintptr_t)address;
-						
 						// Now we have enough information to go through each capability to obtain further information about them.
 						char *val;
 						get_capability(pid, (void*)tags_addr[j], cap_count, path, &val);

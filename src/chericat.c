@@ -10,7 +10,8 @@
 #include "mem_scan.h"
 #include "db_process.h"
 #include "ptrace_utils.h"
-#include "data_presentation.h"
+#include "vm_caps_view.h"
+#include "caps_syms_view.h"
 
 /*
  * usage()
@@ -115,10 +116,7 @@ main(int argc, char *argv[])
                 			return (1);
         			}
 			}
-
-	       		xo_open_list("cap_sym_output");
-			cap_sym_view(db, optarg);
-			xo_close_list("cap_sym_output");
+			caps_syms_view(db, optarg);
 			break;
 		case 'd':
 			dbname = (char*)malloc(strlen(optarg)+1);

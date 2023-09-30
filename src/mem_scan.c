@@ -78,7 +78,7 @@ void scan_mem(sqlite3 *db, char* arg_pid)
 	while (ptrace(PT_VM_ENTRY, pid, (caddr_t)&ptrace_vm_struct, 0) == 0) {
 		// vm_cap_info has a different structure from ptrace_vm_struct that it contains 
 		// cap_info as pTrace captures it.
-		Vm_cap_info_struct vm_cap_info = {};
+		Vm_capture_struct vm_cap_info = {};
                 
 		vm_cap_info.path = malloc(strlen(ptrace_vm_struct.pve_path) + 1);
 		assert(vm_cap_info.path != NULL);
