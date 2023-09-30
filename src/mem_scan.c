@@ -136,10 +136,6 @@ void scan_mem(sqlite3 *db, char* arg_pid)
 					read_elf(vm_cap_info.path), 
 					vm_cap_info.path,
 					vm_cap_info.start_addr);
-
-				for (int i=0; i<seen_index; i++) {
-					printf("seen_index: %d seen_path[%d]: %s\n", seen_index, i, seen_paths[i]);
-				}
 				seen_index++;
 			}
 		}
@@ -228,7 +224,7 @@ void scan_mem_using_procstat(sqlite3 *db, char* arg_pid)
 	for (u_int i=0; i<vmcnt; i++) {
 		kivp = &freep[i];
 
-		debug_print(INFO, "0x%016lx 0x%016lx %s %d %d\n", 
+		debug_print(VERBOSE, "0x%016lx 0x%016lx %s %d %d\n", 
                         kivp->kve_start,
                         kivp->kve_end,
                         kivp->kve_path,
@@ -260,8 +256,6 @@ void scan_mem_using_procstat(sqlite3 *db, char* arg_pid)
 			bool seen=0;
 
 			for (int j=0; j<seen_index; j++) {
-				printf("path[%d]: %s seen_paths[%d]: %s\n", i, kivp->kve_path, j, seen_paths[j]);
-
 				if (strcmp(seen_paths[j], kivp->kve_path) == 0) {
 					seen = 1;
 					break;

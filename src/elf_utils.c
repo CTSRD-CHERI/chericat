@@ -127,7 +127,6 @@ Elf *read_elf(char *path) {
 			kind = "unrecognized";
 	}
 				
-	printf("Successfully read an elf file: %s of kind: %s\n", path, kind);
 	return elfFile;
 }
 
