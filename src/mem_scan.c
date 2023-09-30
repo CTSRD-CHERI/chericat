@@ -215,19 +215,72 @@ void scan_mem_using_procstat(sqlite3 *db, char* arg_pid)
 
 	/* Maintain the list of paths that have already been had their ELF parsed, so that
 	 * we don't duplicate data or scan unnecessarily.
-	 * Choosing 100 as the max number for now, ideally it should be able to grow with the 
+	 * Choosing 50 as the max number for now, ideally it should be able to grow with the 
 	 * number of paths identified.
 	 */
-	char **seen_paths = calloc(50*sizeof(char*), sizeof(char*));
+	struct kinfo_vmentry *seen_kivp = calloc(50, sizeof(struct kinfo_vmentry));
 	int seen_index = 0;
 
 	for (u_int i=0; i<vmcnt; i++) {
 		kivp = &freep[i];
 
-		debug_print(VERBOSE, "0x%016lx 0x%016lx %s %d %d\n", 
+		if (strlen(kivp->kve_path) > 0) {
+			bool seen=0;
+
+			for (int j=0; j<seen_index; j++) {
+				if (strcmp(seen_kivp[j].kve_path, kivp->kve_path) == 0) {
+					seen = 1;
+					printf("Seen this before: %s == %s\n", seen_kivp[j].kve_path, kivp->kve_path);
+					break;
+				}
+			}
+
+			if (!seen) {
+				seen_kivp[seen_index] = *kivp;
+				get_elf_info(
+					db, 
+					read_elf(kivp->kve_path), 
+					kivp->kve_path,
+					kivp->kve_start);
+
+				printf("Not seen this before: %s adding it\n", kivp->kve_path);
+				seen_index++;
+			}
+		}
+		char *mmap_path = NULL;
+
+		if (strlen(kivp->kve_path) == 0) {
+			int found=0;
+			for (int j=0; j<seen_index; j++) {
+
+				if (seen_kivp[j].kve_start == kivp->kve_reservation) {
+					printf("Found a matching start_addr: 0x%lx == 0x%lx\n", seen_kivp[j].kve_start, kivp->kve_reservation);
+					mmap_path = strdup(seen_kivp[j].kve_path);
+					found = 1;
+					break;
+				}
+			}
+
+			if (found == 0) {
+
+				// The mmap vm block is not within any of the loaded library range
+				// now try to "guess" where it belong by using the vnode information
+				if (kivp->kve_type == KVME_TYPE_GUARD) {
+					mmap_path = strdup("Guard");
+				} else if (kivp->kve_flags & KVME_FLAG_GROWS_DOWN) {
+					mmap_path = strdup("Stack");
+				} else {
+					mmap_path = strdup("unknown");
+				}
+			}
+		} else {
+			mmap_path = strdup(kivp->kve_path);
+		}
+
+		debug_print(INFO, "0x%016lx 0x%016lx %s %d %d\n", 
                         kivp->kve_start,
                         kivp->kve_end,
-                        kivp->kve_path,
+                        mmap_path,
 			kivp->kve_flags,
 			kivp->kve_type);
 
@@ -235,7 +288,7 @@ void scan_mem_using_procstat(sqlite3 *db, char* arg_pid)
 		asprintf(&query_value, "(\"0x%lx\", \"0x%lx\", \"%s\", %d, %d)", 
 				kivp->kve_start,
 				kivp->kve_end,
-				kivp->kve_path,
+				mmap_path,
 				kivp->kve_flags,
 				kivp->kve_type);
 	
@@ -252,47 +305,18 @@ void scan_mem_using_procstat(sqlite3 *db, char* arg_pid)
 			insert_vm_query_values = strdup(temp);
 			free(temp);
 		}
-		if (strlen(kivp->kve_path) > 0) {
-			bool seen=0;
-
-			for (int j=0; j<seen_index; j++) {
-				if (strcmp(seen_paths[j], kivp->kve_path) == 0) {
-					seen = 1;
-					break;
-				}
-			}
-
-			if (!seen) {
-				seen_paths[seen_index] = strdup(kivp->kve_path);
-				get_elf_info(
-					db, 
-					read_elf(kivp->kve_path), 
-					kivp->kve_path,
-					kivp->kve_start);
-
-				seen_index++;
-			}
-		}
 		free(query_value);
-		
-		// We don't know in advance how many capabilities can be found within a vm block
-		// Hence using the maximum possible number of capabilities to allocate enough memory 
-		// to hold all the values
-		//u_long max_caps = (kivp->kve_end - kivp->kve_start)/(sizeof(uintcap_t));
-
-		//Cap_info_struct *cap_info = malloc(max_caps*sizeof(uintcap_t)); 
-		//assert(cap_info != NULL);
 		
 		// Divide the vm block into pages, and iterate each page to find the tags that reference each
 		// address within the same page.
 		ptrace_attach(pid);
 		for (u_long start=kivp->kve_start; start<kivp->kve_end; start+=4096) {
-			get_tags(db, pid, start, kivp->kve_path);
+			get_tags(db, pid, start, mmap_path);
 		}
 		ptrace_detach(pid);
        	}
 	
-	free(seen_paths);
+	free(seen_kivp);
 
 	if (insert_vm_query_values != NULL) {
 		char query_hdr[] = "INSERT INTO vm(start_addr, end_addr, mmap_path, mmap_flags, vnode_type) VALUES";
