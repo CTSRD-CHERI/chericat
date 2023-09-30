@@ -229,7 +229,7 @@ void scan_mem_using_procstat(sqlite3 *db, char* arg_pid)
                         kivp->kve_end,
                         kivp->kve_path,
 			kivp->kve_flags,
-			kivp->kve_vn_type);
+			kivp->kve_type);
 
 		char *query_value;
 		asprintf(&query_value, "(\"0x%lx\", \"0x%lx\", \"%s\", %d, %d)", 
@@ -237,7 +237,7 @@ void scan_mem_using_procstat(sqlite3 *db, char* arg_pid)
 				kivp->kve_end,
 				kivp->kve_path,
 				kivp->kve_flags,
-				kivp->kve_vn_type);
+				kivp->kve_type);
 	
 		if (i == 0) {
 			insert_vm_query_values = (char*)malloc(sizeof(query_value));
@@ -304,15 +304,6 @@ void scan_mem_using_procstat(sqlite3 *db, char* arg_pid)
 		free(insert_vm_query_values);
 		free(query);
 	}
-
-        //int err = errno;
-        //if (err != ENOENT) {
-	//	fprintf(stderr, "ptrace hasn't ended gracefully: %s %d\n", strerror(err), err);
-        //}
-
-        //ptrace_detach(pid);
-
-	//}
 
 	procstat_freevmmap(psp, freep);
 	procstat_freeprocs(psp, kipp);
