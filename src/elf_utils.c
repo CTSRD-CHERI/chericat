@@ -142,10 +142,15 @@ void get_elf_info(sqlite3 *db, Elf *elfFile, char *source, u_long source_base)
 	Elf_Scn *scn;
 	const char *symname;
 	Elf_Word strscnidx;
+	size_t shstrndx;
 
 	if (gelf_getehdr(elfFile, &ehdr) == NULL) {
 		fprintf(stderr, "Can't read ELF header for %s\n", source);
 		elf_end(elfFile);
+	}
+
+	if (elf_getshdrstrndx(elfFile, &shstrndx) != 0) {
+		fprintf(stderr, "elf_getshdrstrndx() failed: %s\n", elf_errmsg(-1));
 	}
 
 	scn = NULL;
@@ -153,9 +158,17 @@ void get_elf_info(sqlite3 *db, Elf *elfFile, char *source, u_long source_base)
 
 	char *insert_syms_query_values;
 	int query_values_index=0;
+	char *section_name;
 
 	while ((scn = elf_nextscn(elfFile, scn)) != NULL) {
 		gelf_getshdr(scn, &shdr);
+
+		if ((section_name = elf_strptr(elfFile, shstrndx, shdr.sh_name)) == NULL) {
+			fprintf(stderr, "elf_strptr() failed: %s\n", elf_errmsg(-1));
+		}
+
+		//(void)printf("Section %-4.4jd %s\n", (uintmax_t)elf_ndxscn(scn), section_name);
+
 		if (shdr.sh_type == SHT_DYNSYM || shdr.sh_type == SHT_SYMTAB) {
 			if (shdr.sh_type == SHT_DYNSYM) {
 				seen_dynsym = 1;

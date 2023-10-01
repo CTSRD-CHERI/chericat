@@ -9,6 +9,7 @@ typedef struct vm_info_struct {
         char *start_addr;       
         char *end_addr; 
         char *mmap_path;
+	int kve_protection;
         int mmap_flags;         
         int vnode_type;         
 } vm_info;                      

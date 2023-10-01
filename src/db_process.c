@@ -31,14 +31,12 @@ char *get_dbname() {
  */
 int create_vm_cap_db(sqlite3 *db)
 {
-	//sqlite3* db;
-	//int exit = 0;
-
 	char *vm_table = 
 		"CREATE TABLE IF NOT EXISTS vm("
 		"start_addr VARCHAR NOT NULL, "
 		"end_addr VARCHAR NOT NULL, "
 		"mmap_path VARCHAR NOT NULL, "
+		"kve_protection INTEGER NOT NULL, "
 		"mmap_flags INTEGER NOT NULL, "
 		"vnode_type INTEGER NOT NULL);";
 	
@@ -51,18 +49,6 @@ int create_vm_cap_db(sqlite3 *db)
 		"base VARCHAR NOT NULL, "
 		"top VARCHAR NOT NULL);";
 
-	/*
-	exit = sqlite3_open(get_dbname(), &db);
-
-	if (exit) {
-		fprintf(stderr, "Error open DB %s", sqlite3_errmsg(db));
-		//sqlite3_close(db);
-		return (1);
-	} else {
-		debug_print(TROUBLESHOOT, "Database open successfully\n", NULL);
-	}
-	*/
-
 	int rc;
 	char* messageError;
 
@@ -71,7 +57,6 @@ int create_vm_cap_db(sqlite3 *db)
 	if (rc != SQLITE_OK) {
 		fprintf(stderr, "SQL error: %s\n", messageError);
 		sqlite3_free(messageError);
-		//sqlite3_close(db);
 		return (1);
 	} else {
 		debug_print(TROUBLESHOOT, "Database table cap_info_table created successfully\n", NULL);
@@ -82,7 +67,6 @@ int create_vm_cap_db(sqlite3 *db)
 	if (rc != SQLITE_OK) {
 		fprintf(stderr, "SQL error: %s\n", messageError);
 		sqlite3_free(messageError);
-		//sqlite3_close(db);
 		return (1);
 	} else {
 		debug_print(TROUBLESHOOT, "Database table vm_table created successfully\n", NULL);
@@ -93,7 +77,6 @@ int create_vm_cap_db(sqlite3 *db)
 	sqlite3_status64(SQLITE_STATUS_MEMORY_USED, &pCurrent, &pHighwater, 0);
 	debug_print(VERBOSE, "sqlite mem used, current: %lld high water: %lld\n", pCurrent, pHighwater);
 	*/
-	//sqlite3_close(db);
 	return (0);
 }
 
@@ -102,9 +85,6 @@ int create_vm_cap_db(sqlite3 *db)
  */
 int create_elf_sym_db(sqlite3 *db)
 {
-	//sqlite3* db;
-	//int exit = 0;
-
 	char *elf_sym_table = 
 		"CREATE TABLE IF NOT EXISTS elf_sym("
 		"source_path VARCHAR NOT NULL, "
@@ -115,18 +95,6 @@ int create_elf_sym_db(sqlite3 *db)
 		"bind VARCHAR NOT NULL, "
 		"addr VARCHAR NOT NULL);";
 	
-	/*
-	exit = sqlite3_open(get_dbname(), &db);
-
-	if (exit) {
-		fprintf(stderr, "Error open DB %s", sqlite3_errmsg(db));
-		sqlite3_close(db);
-		return (1);
-	} else {
-		debug_print(TROUBLESHOOT, "Database %s open successfully\n", get_dbname());
-	}
-	*/
-
 	int rc;
 	char* messageError;
 
@@ -135,7 +103,6 @@ int create_elf_sym_db(sqlite3 *db)
 	if (rc != SQLITE_OK) {
 		fprintf(stderr, "SQL error: %s\n", messageError);
 		sqlite3_free(messageError);
-		//sqlite3_close(db);
 		return (1);
 	} else {
 		debug_print(TROUBLESHOOT, "Database table elf_sym_table created successfully\n", NULL);
@@ -146,27 +113,11 @@ int create_elf_sym_db(sqlite3 *db)
 	sqlite3_status64(SQLITE_STATUS_MEMORY_USED, &pCurrent, &pHighwater, 0);
 	debug_print(VERBOSE, "sqlite mem used, current: %lld high water: %lld\n", pCurrent, pHighwater);
 	*/
-	//sqlite3_close(db);
 	return (0);
 }
 
 int begin_transaction(sqlite3 *db)
 {
-	/*
-	sqlite3* db;
-	int exit = 0;
-
-	exit = sqlite3_open(get_dbname(), &db);
-
-	if (exit) {
-		fprintf(stderr, "Error open DB %s", sqlite3_errmsg(db));
-		//sqlite3_close(db);
-		return (1);
-	} else {
-		debug_print(TROUBLESHOOT, "Database open successfully\n", NULL);
-	}
-	*/
-
 	int rc;
 	char *messageError;
 
@@ -178,27 +129,11 @@ int begin_transaction(sqlite3 *db)
 		return (1);
 	}
 
-	//sqlite3_close(db);
 	return (0);
 }
 
 int commit_transaction(sqlite3 *db)
 {
-	/*
-	sqlite3* db;
-	int exit = 0;
-
-	exit = sqlite3_open(get_dbname(), &db);
-
-	if (exit) {
-		fprintf(stderr, "Error open DB %s", sqlite3_errmsg(db));
-		sqlite3_close(db);
-		return (1);
-	} else {
-		debug_print(TROUBLESHOOT, "Database open successfully\n", NULL);
-	}
-	*/
-
 	int rc;
 	char *messageError;
 
@@ -210,7 +145,6 @@ int commit_transaction(sqlite3 *db)
 		return (1);
 	}
 
-	//sqlite3_close(db);
 	return (0);
 }	
 
@@ -223,7 +157,6 @@ int sql_query_exec(sqlite3 *db, char* query, int (*callback)(void*,int,char**,ch
 	if (rc != SQLITE_OK) {
 		fprintf(stderr, "SQL error: %s (db: %s)\n", messageError, get_dbname());
 		sqlite3_free(messageError);
-		//sqlite3_close(db);
 		return (1);
 	} else {
 		debug_print(TROUBLESHOOT, "Query %s, executed successfully (rc=%d) \n", query, rc);
@@ -254,15 +187,16 @@ int all_vm_info_index, all_cap_info_index, all_sym_info_index;
  */
 static int vm_info_query_callback(void *all_vm_info_ptr, int argc, char **argv, char **azColName)
 {
-        /* Database schema for vm has 3 columns */
-        assert(argc == 5);
+        /* Database schema for vm has 6 columns */
+        assert(argc == 6);
  
         vm_info vm_info_captured;
         vm_info_captured.start_addr = strdup(argv[0]);
         vm_info_captured.end_addr = strdup(argv[1]);
         vm_info_captured.mmap_path = strdup(argv[2]);
-        vm_info_captured.mmap_flags = atoi(argv[3]); 
-        vm_info_captured.vnode_type = atoi(argv[4]);
+     	vm_info_captured.kve_protection = atoi(argv[3]);
+     	vm_info_captured.mmap_flags = atoi(argv[4]); 
+        vm_info_captured.vnode_type = atoi(argv[5]);
 
 	vm_info **result_ptr = (vm_info **)all_vm_info_ptr;
        	(*result_ptr)[all_vm_info_index++] = vm_info_captured;
@@ -346,11 +280,6 @@ static int vm_info_count_query_callback(void *count, int argc, char **argv, char
 	char **result_ptr = (char **)count;
 	*result_ptr = strdup(argv[0]);
     	return 0;
-
-	/*
-	for(int i=0; i<argc; i++){
-        	vm_count = atoi(argv[i]);
-    	}*/
 }
 
 static int cap_info_count_query_callback(void *count, int argc, char **argv, char **azColName)
@@ -359,11 +288,6 @@ static int cap_info_count_query_callback(void *count, int argc, char **argv, cha
 	char **result_ptr = (char **)count;
 	*result_ptr = strdup(argv[0]);
 	return 0;
-	/*
-	for(int i=0; i<argc; i++){
-		cap_count = atoi(argv[i]);
-	}
-	*/
 }
 
 static int sym_info_count_query_callback(void *count, int argc, char **argv, char **azColName)
@@ -372,11 +296,6 @@ static int sym_info_count_query_callback(void *count, int argc, char **argv, cha
 	char **result_ptr = (char **)count;
 	*result_ptr = strdup(argv[0]);
 	return 0;
-	/*
-	for(int i=0; i<argc; i++){
-		sym_count = atoi(argv[i]);
-	}
-	*/
 }
 
 int vm_info_count(sqlite3 *db) 
@@ -522,6 +441,7 @@ void db_info_capture_test()
 		printf("     %s\n", vm_info_captured[i].start_addr);
 		printf("     %s\n", vm_info_captured[i].end_addr);
 		printf("     %s\n", vm_info_captured[i].mmap_path);
+		printf("     %d\n", vm_info_captured[i].kve_protection);
 	}
 	
 	cap_info *cap_info_captured;

@@ -230,7 +230,6 @@ void scan_mem_using_procstat(sqlite3 *db, char* arg_pid)
 			for (int j=0; j<seen_index; j++) {
 				if (strcmp(seen_kivp[j].kve_path, kivp->kve_path) == 0) {
 					seen = 1;
-					printf("Seen this before: %s == %s\n", seen_kivp[j].kve_path, kivp->kve_path);
 					break;
 				}
 			}
@@ -242,8 +241,6 @@ void scan_mem_using_procstat(sqlite3 *db, char* arg_pid)
 					read_elf(kivp->kve_path), 
 					kivp->kve_path,
 					kivp->kve_start);
-
-				printf("Not seen this before: %s adding it\n", kivp->kve_path);
 				seen_index++;
 			}
 		}
@@ -254,7 +251,6 @@ void scan_mem_using_procstat(sqlite3 *db, char* arg_pid)
 			for (int j=0; j<seen_index; j++) {
 
 				if (seen_kivp[j].kve_start == kivp->kve_reservation) {
-					printf("Found a matching start_addr: 0x%lx == 0x%lx\n", seen_kivp[j].kve_start, kivp->kve_reservation);
 					mmap_path = strdup(seen_kivp[j].kve_path);
 					found = 1;
 					break;
@@ -277,18 +273,20 @@ void scan_mem_using_procstat(sqlite3 *db, char* arg_pid)
 			mmap_path = strdup(kivp->kve_path);
 		}
 
-		debug_print(INFO, "0x%016lx 0x%016lx %s %d %d\n", 
+		debug_print(INFO, "0x%016lx 0x%016lx %s %d %d %d\n", 
                         kivp->kve_start,
                         kivp->kve_end,
                         mmap_path,
+			kivp->kve_protection,
 			kivp->kve_flags,
 			kivp->kve_type);
 
 		char *query_value;
-		asprintf(&query_value, "(\"0x%lx\", \"0x%lx\", \"%s\", %d, %d)", 
+		asprintf(&query_value, "(\"0x%lx\", \"0x%lx\", \"%s\", %d, %d, %d)", 
 				kivp->kve_start,
 				kivp->kve_end,
 				mmap_path,
+				kivp->kve_protection,
 				kivp->kve_flags,
 				kivp->kve_type);
 	
@@ -319,7 +317,7 @@ void scan_mem_using_procstat(sqlite3 *db, char* arg_pid)
 	free(seen_kivp);
 
 	if (insert_vm_query_values != NULL) {
-		char query_hdr[] = "INSERT INTO vm(start_addr, end_addr, mmap_path, mmap_flags, vnode_type) VALUES";
+		char query_hdr[] = "INSERT INTO vm(start_addr, end_addr, mmap_path, kve_protection, mmap_flags, vnode_type) VALUES";
 		char *query;
 		asprintf(&query, "%s%s;", query_hdr, insert_vm_query_values);
 	

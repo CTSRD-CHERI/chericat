@@ -11,7 +11,7 @@
 #define VERBOSE 2 
 #define TROUBLESHOOT 3
 
-#define PRINT_LEVEL INFO 
+#define PRINT_LEVEL VERBOSE 
 
 #define debug_print(level, fmt, ...) \
 	do { if (level <= PRINT_LEVEL) { fprintf(stdout, fmt, __VA_ARGS__); }} while(0)

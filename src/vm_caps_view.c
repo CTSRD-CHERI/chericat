@@ -56,14 +56,25 @@ void vm_caps_view(sqlite3 *db)
 	}
 
 	int ptrwidth = sizeof(void *);
-	xo_emit("{T:/\n%*s %*s %4s %5s %5s %5s %8s %8s %-5s %-2s %-s}\n",
-		ptrwidth, "START", ptrwidth-1, "END", "ro", "rw", "rx", "rwx", "TOTAL", "DENSITY", "FLAGS", "TP", "PATH");
+	xo_emit("{T:/\n%*s %*s %6s %5s %5s %5s %5s %8s %8s %-5s %-2s %-s}\n",
+		ptrwidth, "START", ptrwidth-1, "END", "PRT", "ro", "rw", "rx", "rwx", "TOTAL", "DENSITY", "FLAGS", "TP", "PATH");
 	
 	for (int i=1; i<vm_count; i++) {
 		xo_open_instance("vm_cap_output");
 		xo_emit("{:mmap_start_addr/%*s}", ptrwidth, vm_info_captured[i].start_addr);
 		xo_emit("{:mmap_end_addr/%*s}", ptrwidth, vm_info_captured[i].end_addr);
 			
+		xo_emit("{d:read/%3s}", vm_info_captured[i].kve_protection & KVME_PROT_READ ?
+			"r" : "-");
+		xo_emit("{d:write/%s}", vm_info_captured[i].kve_protection & KVME_PROT_WRITE ?
+			"w" : "-");
+		xo_emit("{d:exec/%s}", vm_info_captured[i].kve_protection & KVME_PROT_EXEC ?
+			"x" : "-");
+		xo_emit("{d:read_cap/%s}", vm_info_captured[i].kve_protection & KVME_PROT_READ_CAP ? 
+			"R" : "-");
+		xo_emit("{d:write_cap/%s} ", vm_info_captured[i].kve_protection & KVME_PROT_WRITE_CAP ? 
+			"W" : "-");
+
 		uintptr_t start_addr = (uintptr_t)strtol(vm_info_captured[i].start_addr, NULL, 0);
 	       	uintptr_t end_addr = (uintptr_t)strtol(vm_info_captured[i].end_addr, NULL, 0);
 		
