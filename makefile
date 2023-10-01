@@ -20,9 +20,11 @@ make_dir: $(BIN)/
 $(BIN)/:
 	mkdir -p $@
 
-$(TARGET): $(SRC)/chericat.c $(BIN)/mem_scan.o $(BIN)/db_process.o $(BIN)/cap_capture.o $(BIN)/elf_utils.o $(BIN)/ptrace_utils.o $(BIN)/vm_caps_view.o $(BIN)/caps_syms_view.o
-	$(CC) $(CFLAGS) $(INC) $(LDFLAGS) -DSQLITE_MEMDEBUG -lelf -lprocstat -lsqlite3 -lxo -o $(TARGET) $(BIN)/mem_scan.o $(BIN)/elf_utils.o $(BIN)/ptrace_utils.o $(BIN)/cap_capture.o $(BIN)/db_process.o $(BIN)/vm_caps_view.o $(BIN)/caps_syms_view.o $(SRC)/chericat.c
+$(TARGET): $(SRC)/chericat.c $(BIN)/common.o $(BIN)/mem_scan.o $(BIN)/db_process.o $(BIN)/cap_capture.o $(BIN)/elf_utils.o $(BIN)/ptrace_utils.o $(BIN)/vm_caps_view.o $(BIN)/caps_syms_view.o
+	$(CC) $(CFLAGS) $(INC) $(LDFLAGS) -DSQLITE_MEMDEBUG -lelf -lprocstat -lsqlite3 -lxo -o $(TARGET) $(BIN)/common.o $(BIN)/mem_scan.o $(BIN)/elf_utils.o $(BIN)/ptrace_utils.o $(BIN)/cap_capture.o $(BIN)/db_process.o $(BIN)/vm_caps_view.o $(BIN)/caps_syms_view.o $(SRC)/chericat.c
 
+$(BIN)/common.o: $(SRC)/common.c
+	$(CC) $(CFLAGS) $(INC) -c -o $(BIN)/common.o $(SRC)/common.c
 $(BIN)/mem_scan.o: $(SRC)/mem_scan.c
 	$(CC) $(CFLAGS) $(INC) -c -o $(BIN)/mem_scan.o $(SRC)/mem_scan.c
 

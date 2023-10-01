@@ -39,7 +39,6 @@ void vm_caps_view(sqlite3 *db)
 {
 	vm_info *vm_info_captured;
 	int vm_count = get_all_vm_info(db, &vm_info_captured);
-	printf("In vm_caps_view, obtained vm_count = %d\n", vm_count);
 	assert(vm_count != -1);
 
 	cap_info *cap_info_captured;
@@ -131,52 +130,41 @@ void vm_caps_view(sqlite3 *db)
 		xo_emit("{:wired/%-1s} ", vm_info_captured[i].mmap_flags &
 	    		KVME_FLAG_USER_WIRED ? "W" : "-");
 			
-		const char *str, *lstr;	
+		const char *str;	
 		switch (vm_info_captured[i].vnode_type) {
 		case KVME_TYPE_NONE:
 			str = "--";
-			lstr = "none";
 			break;
 		case KVME_TYPE_DEFAULT:
 			str = "df";
-			lstr = "default";
 			break;
 		case KVME_TYPE_VNODE:
 			str = "vn";
-			lstr = "vnode";
 			break;
 		case KVME_TYPE_SWAP:
 			str = "sw";
-			lstr = "swap";
 			break;
 		case KVME_TYPE_DEVICE:
 			str = "dv";
-			lstr = "device";
 			break;
 		case KVME_TYPE_PHYS:
 			str = "ph";
-			lstr = "physical";
 			break;
 		case KVME_TYPE_DEAD:
 			str = "dd";
-			lstr = "dead";
 			break;
 		case KVME_TYPE_SG:
 			str = "sg";
-			lstr = "scatter/gather";
 			break;
 		case KVME_TYPE_MGTDEVICE:
 			str = "md";
-			lstr = "managed_device";
 			break;
 		case KVME_TYPE_GUARD:
 			str = "gd";
-			lstr = "guard";
 			break;
 		case KVME_TYPE_UNKNOWN:
 		default:
 			str = "??";
-			lstr = "unknown";
 			break;
 		}
 		xo_emit("{:kve_type/%-2s} ", str);	

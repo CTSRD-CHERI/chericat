@@ -104,27 +104,10 @@ Elf *read_elf(char *path) {
 	}
 			
 	Elf *elfFile;
-	char *kind;
-	Elf_Kind elfKind;
 
 	if ((elfFile = elf_begin(fd, ELF_C_READ, NULL)) == NULL) {
 		fprintf(stderr, "Error reading ELF file %s\n", elf_errmsg(-1));
 		exit(1);
-	}
-	elfKind = elf_kind(elfFile);
-
-	switch (elfKind) {
-		case ELF_K_AR:
-			kind = "ar(1) archive";
-			break;
-		case ELF_K_ELF:
-			kind = "elf object";
-			break;
-		case ELF_K_NONE:
-			kind = "data";
-			break;
-		default:
-			kind = "unrecognized";
 	}
 				
 	return elfFile;

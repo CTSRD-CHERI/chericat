@@ -251,29 +251,6 @@ static int sym_info_query_callback(void *all_sym_info_ptr, int argc, char **argv
 	return 0;
 }
 
-
-/*
- * sym_name_query_callback
- * SQLite callback routine to traverse results from sqlite_exec()
- * using: "SELECT st_name FROM elf_sym where addr == cap;"
- * Results are formatted into: sym_name
- *
- * sym_name - to store the pointer result to the symbol name string from the query
- * argc - number of columns
- * argv - pointer to the data that is stored in each column
- * azColName - pointer to the colunmn names
- */
-
-static int sym_name_query_callback(void *sym_name, int argc, char **argv, char **azColName)
-{
-        char **result_ptr = (char **)sym_name;
-        if (argc >= 0) {
-                *result_ptr = (char*)calloc(strlen(argv[0])+1, sizeof(char));
-                strcpy(*result_ptr, argv[0]);
-        }
-        return 0;
-}
-
 static int vm_info_count_query_callback(void *count, int argc, char **argv, char **azColName)
 {
 	assert(argc > 0);

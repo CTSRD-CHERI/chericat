@@ -43,8 +43,6 @@ static struct option long_options[] =
 	{0,0,0,0}
 };
 
-extern int print_level;
-
 int 
 main(int argc, char *argv[])
 {
@@ -62,7 +60,8 @@ main(int argc, char *argv[])
 		return 1;
 	}
 
-	xo_handle_t *xo_handle = xo_create_to_file(fptr, XO_STYLE_JSON, XOF_WARN|XOF_PRETTY);
+	//TODO: This can be used to direct libxo output to a specific file instead of the console
+	//xo_handle_t *xo_handle = xo_create_to_file(fptr, XO_STYLE_JSON, XOF_WARN|XOF_PRETTY);
 
 	int optindex;
 	int opt = getopt_long(argc, argv, "g:d:p:vc:", long_options, &optindex);
@@ -74,7 +73,7 @@ main(int argc, char *argv[])
 
 	sqlite3 *db = NULL;
 
-	print_level = INFO;
+	set_print_level(INFO);
 
 	while (opt != -1) {
 		switch (opt)
@@ -122,7 +121,7 @@ main(int argc, char *argv[])
 			strcpy(dbname, optarg);
 			break;
 		case 'g':
-			print_level = atoi(optarg);
+			set_print_level(atoi(optarg));
 			break;
 		default:
 			usage();

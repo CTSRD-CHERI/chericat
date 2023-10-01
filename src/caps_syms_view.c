@@ -44,7 +44,6 @@ void caps_syms_view(sqlite3 *db, char *lib)
 		xo_emit("{:bottom_dash/-}");
 	}
 
-	int ptrwidth = sizeof(void *);
 	xo_emit("{T:/\n%12s %29s %9s %53s %30s %9s}\n",
 		"CAP_LOC", "CAP_LOC_SYM", "TYPE", "CAP_INFO", "CAP_SYM", "TYPE");
 		

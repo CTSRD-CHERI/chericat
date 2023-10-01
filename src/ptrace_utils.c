@@ -147,30 +147,3 @@ void read_lwps(char *arg_pid) {
 	free(lwps);
 }
 
-void get_vmmap_from_procstat(char *arg_pid) {
-	int pid = atoi(arg_pid);
-
-	struct procstat *psp;
-	struct kinfo_proc *kipp;
-	struct kinfo_vmentry *kivp;
-	uint pcnt, vmcnt;
-
-	psp = procstat_open_sysctl();
-	assert(psp != NULL);
-
-	kipp = procstat_getprocs(psp, KERN_PROC_PID, pid, &pcnt);
-	assert(kipp != NULL);
-	assert(pcnt == 1);
-
-	kivp = procstat_getvmmap(psp, kipp, &vmcnt);
-	assert(kivp != NULL);
-
-	for (u_int i=1; i<vmcnt; i++) {
-		printf("procstat - kve_start: 0x%016lx kve_vn_mode: 0x%02x kve_path: %s\n", 
-				kivp[i].kve_start, kivp[i].kve_vn_mode, kivp[i].kve_path);
-	}
-
-	procstat_freevmmap(psp, kivp);
-	procstat_freeprocs(psp, kipp);
-	procstat_close(psp);
-}
