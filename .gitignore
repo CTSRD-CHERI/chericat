@@ -2,3 +2,4 @@ bin/
 *.db
 *.elf
 *.core
+tests/test
