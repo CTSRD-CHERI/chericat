@@ -22,9 +22,7 @@ def gen_records(graph, nodes, edge_dict_list):
         #subg.node_attr['shape'] = "ellipse"
         
         #for i in range(len(vm_nodes)):
-    print(nodes)
     for node in nodes:
-        print(node)
         graph.node(node.get("id"), node.get("txt"), fillcolor=node.get("fillcolor"))
         
     edges = []

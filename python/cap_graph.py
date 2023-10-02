@@ -104,5 +104,4 @@ def show_caps_between_two_libs(db, lib1, lib2, graph):
                         break
                 edges.append({"src":lib2, "dest":lib1, "label":cap_perms, "penwidth":str(penwidth_weight)})
 
-    print(edges)
     gen_gv_records.gen_records(graph, nodes, edges)
