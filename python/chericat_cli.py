@@ -3,6 +3,11 @@ import json
 import sqlite3
 import sys, os, argparse
 import math
+
+import gen_gv_records
+import all_binary_graph
+import cap_graph
+
 from IPython.display import display
 
 parser = argparse.ArgumentParser(prog='chericat_cli')
@@ -25,7 +30,7 @@ parser.add_argument(
 )
     
 parser.add_argument(
-	'-q', 
+	'-r', 
 	help='Executes the SQL query on the provided db',
 	nargs=1,
 )
@@ -43,23 +48,19 @@ if args.d:
 
 if args.g:
 	digraph = graphviz.Digraph('G', filename='graph_overview.gv')
-	#_binary_graph(db, digraph)
+	all_binary_graph.binary_graph(db, digraph)
 	digraph.render(directory='graph-output', view=True)  
-	print("args.g")
 
 if args.l:
 	digraph = graphviz.Digraph('G', filename='graph_for_'+args.l[0]+'.gv')
-	#_show_caps_to_bin(db, args.l[0], digraph)
+	cap_graph.show_caps_to_bin(db, args.l[0], digraph)
 	digraph.render(directory='graph-output', view=True)  
-	print("args.l")
 
-if args.q:
-	#print(_run_sql_query(db, args.q[0]))
-	print("args.q")
+if args.r:
+	print(gen_gv_records.run_sql_query(db, args.q[0]))
 
 if args.c:
 	digraph = graphviz.Digraph('G', filename=args.c[0]+'_vs_'+args.c[1]+'.gv')
-	#_show_caps_between_two_libs(db, args.c[0], args.c[1], digraph)
+	cap_graph.show_caps_between_two_libs(db, args.c[0], args.c[1], digraph)
 	digraph.render(directory='graph-output', view=True)
-	print("args.c")
 
