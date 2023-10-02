@@ -88,7 +88,7 @@ main(int argc, char *argv[])
                		 		return (1);
         			}
 			}
-			scan_mem_using_procstat(db, optarg);
+			scan_mem(db, optarg);
 			break;
 		case 'v':
 			if (db == NULL) {

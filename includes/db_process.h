@@ -11,7 +11,13 @@ typedef struct vm_info_struct {
         char *mmap_path;
 	int kve_protection;
         int mmap_flags;         
-        int vnode_type;         
+        int vnode_type;   
+  	char *bss_addr;
+	char *bss_size;
+	char *plt_addr;
+	char *plt_size;
+	char *got_addr;
+	char *got_size;	
 } vm_info;                      
                         
 typedef struct cap_info_struct {

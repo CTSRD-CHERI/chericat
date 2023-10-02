@@ -38,158 +38,12 @@ bool string_seen_before(char *string_array[], char *string)
 	return 0;
 }
 
-
-/*
- * scan_mem
- * When the -s option is used to attach this tool to a running process.
- * Uses ptrace to trace the mapped memory and persis the data to a db
- */
-void scan_mem(sqlite3 *db, char* arg_pid) 
-{
-        int pid = atoi(arg_pid);
-        char buffer[256];
-
-	debug_print(TROUBLESHOOT, "Key Stage: Create database and tables to store all the captured data\n", NULL);
-	create_vm_cap_db(db);
-
-	debug_print(TROUBLESHOOT, "Key Stage: Attach process %d using ptrace\n", pid);
-        ptrace_attach(pid);
-
-	//ptrace_vm_struct is used to store the values obtained from pTrace request PT_VM_ENTRY
-        struct ptrace_vm_entry ptrace_vm_struct;
-        ptrace_vm_struct.pve_entry = 0;
-        ptrace_vm_struct.pve_pathlen=sizeof(buffer);
-        ptrace_vm_struct.pve_path = buffer;
-
-	debug_print(TROUBLESHOOT, "Key Stage: Start pTrace for request PT_VM_ENTRY\n", NULL);
-
-	char *insert_vm_query_values;
-
-	int count = 0;
-
-	/* Maintain the list of paths that have already been had their ELF parsed, so that
-	 * we don't duplicate data or scan unnecessarily.
-	 * Choosing 100 as the max number for now, ideally it should be able to grow with the 
-	 * number of paths identified.
-	 */
-	char **seen_paths = calloc(50*sizeof(char*), sizeof(char*));
-	int seen_index = 0;
-
-	while (ptrace(PT_VM_ENTRY, pid, (caddr_t)&ptrace_vm_struct, 0) == 0) {
-		// vm_cap_info has a different structure from ptrace_vm_struct that it contains 
-		// cap_info as pTrace captures it.
-		Vm_capture_struct vm_cap_info = {};
-                
-		vm_cap_info.path = malloc(strlen(ptrace_vm_struct.pve_path) + 1);
-		assert(vm_cap_info.path != NULL);
-
-                if (ptrace_vm_struct.pve_pathlen == 0) {
-			strcpy(vm_cap_info.path, "unknown");
-		} else {
-			// ptrace_vm_struct.pve_path is already \0 terminating?
-			memcpy(vm_cap_info.path, ptrace_vm_struct.pve_path, strlen(ptrace_vm_struct.pve_path)+1);
-		}
-
-		vm_cap_info.start_addr = ptrace_vm_struct.pve_start;
-		vm_cap_info.end_addr = ptrace_vm_struct.pve_end;
-
-		debug_print(INFO, "%016lx %016lx %s %d\n", 
-                        vm_cap_info.start_addr,
-                        vm_cap_info.end_addr,
-                        vm_cap_info.path,
-			ptrace_vm_struct.pve_pathlen);
-
-		char *query_value;
-		asprintf(&query_value, "(\"0x%lx\", \"0x%lx\", \"%s\")", 
-				vm_cap_info.start_addr,
-				vm_cap_info.end_addr,
-				vm_cap_info.path);
-	
-		if (count == 0) {
-			insert_vm_query_values = (char*)malloc(sizeof(query_value));
-			assert(insert_vm_query_values != NULL);
-
-			insert_vm_query_values = strdup(query_value);
-		} else {
-			char *temp;
-			asprintf(&temp, "%s,%s", 
-				insert_vm_query_values,
-				query_value);
-			insert_vm_query_values = strdup(temp);
-			free(temp);
-		}
-
-		if (strcmp(vm_cap_info.path, "unknown") != 0) {
-			bool seen=0;
-
-			for (int i=0; i<seen_index; i++) {
-				if (strcmp(seen_paths[i], vm_cap_info.path) == 0) {
-					seen = 1;
-					break;
-				}
-			}
-
-			if (!seen) {
-				seen_paths[seen_index] = strdup(vm_cap_info.path);
-				get_elf_info(
-					db,
-					read_elf(vm_cap_info.path), 
-					vm_cap_info.path,
-					vm_cap_info.start_addr);
-				seen_index++;
-			}
-		}
-
-		free(query_value);
-		// We don't know in advance how many capabilities can be found within a vm block
-		// Hence using the maximum possible number of capabilities to allocate enough memory 
-		// to hold all the values
-		u_long max_caps = (ptrace_vm_struct.pve_end - ptrace_vm_struct.pve_start)/(sizeof(uintcap_t));
-		vm_cap_info.cap_info = malloc(max_caps*sizeof(uintcap_t)); 
-		assert(vm_cap_info.cap_info != NULL);
-		
-		// Divide the vm block into pages, and iterate each page to find the tags that reference each
-		// address within the same page.
-		for (u_long start=ptrace_vm_struct.pve_start; start<ptrace_vm_struct.pve_end; start+=4096) {
-			//get_tags(pid, start, &vm_cap_info, vm_cap_info.path);
-			get_tags(db, pid, start, vm_cap_info.path);
-		}
-		free(vm_cap_info.path);
-		free(vm_cap_info.cap_info);
-
-		ptrace_vm_struct.pve_pathlen=sizeof(buffer);
-
-		count++;
-       	}
-	
-	free(seen_paths);
-
-	if (insert_vm_query_values != NULL) {
-		char query_hdr[] = "INSERT INTO vm(start_addr, end_addr, mmap_path) VALUES";
-		char *query;
-		asprintf(&query, "%s%s;", query_hdr, insert_vm_query_values);
-	
-		int db_rc = sql_query_exec(db, query, NULL, NULL);
-		debug_print(TROUBLESHOOT, "Key Stage: Inserted vm entry info to the database (rc=%d)\n", db_rc);
-		free(insert_vm_query_values);
-		free(query);
-	}
-
-        int err = errno;
-        if (err != ENOENT) {
-		fprintf(stderr, "ptrace hasn't ended gracefully: %s %d\n", strerror(err), err);
-        }
-
-        ptrace_detach(pid);
-}
-
-
 /*              
  * scan_mem
  * When the -s option is used to attach this tool to a running process.
  * Uses ptrace to trace the mapped memory and persis the data to a db
  */
-void scan_mem_using_procstat(sqlite3 *db, char* arg_pid) 
+void scan_mem(sqlite3 *db, char* arg_pid) 
 {
 	int pid = atoi(arg_pid);
 
@@ -219,6 +73,10 @@ void scan_mem_using_procstat(sqlite3 *db, char* arg_pid)
 	 * number of paths identified.
 	 */
 	struct kinfo_vmentry *seen_kivp = calloc(50, sizeof(struct kinfo_vmentry));
+	special_sections *ssect = (special_sections *)calloc(vmcnt, sizeof(special_sections));
+	assert(ssect != NULL);
+	int ssect_index = 0;
+
 	int seen_index = 0;
 
 	for (u_int i=0; i<vmcnt; i++) {
@@ -240,7 +98,9 @@ void scan_mem_using_procstat(sqlite3 *db, char* arg_pid)
 					db, 
 					read_elf(kivp->kve_path), 
 					kivp->kve_path,
-					kivp->kve_start);
+					kivp->kve_start,
+					&ssect,
+					ssect_index++);
 				seen_index++;
 			}
 		}
@@ -271,6 +131,29 @@ void scan_mem_using_procstat(sqlite3 *db, char* arg_pid)
 			}
 		} else {
 			mmap_path = strdup(kivp->kve_path);
+		}
+
+		// TODO: Will make these into a neater routine!
+		if (kivp->kve_start <= ssect[ssect_index-1].bss_addr &&
+			kivp->kve_end >= ssect[ssect_index-1].bss_addr+ssect[ssect_index-1].bss_size) {
+			char *new_path;
+			asprintf(&new_path, "%s(.bss)", mmap_path);
+			mmap_path = strdup(new_path);
+			free(new_path);
+		}
+		if (kivp->kve_start <= ssect[ssect_index-1].plt_addr &&
+			kivp->kve_end >= ssect[ssect_index-1].plt_addr+ssect[ssect_index-1].plt_size) {
+			char *new_path;
+			asprintf(&new_path, "%s(.plt)", mmap_path);
+			mmap_path = strdup(new_path);
+			free(new_path);
+		}
+		if (kivp->kve_start <= ssect[ssect_index-1].got_addr &&
+			kivp->kve_end >= ssect[ssect_index-1].got_addr+ssect[ssect_index-1].got_size) {
+			char *new_path;
+			asprintf(&new_path, "%s(.got)", mmap_path);
+			mmap_path = strdup(new_path);
+			free(new_path);
 		}
 
 		debug_print(INFO, "0x%016lx 0x%016lx %s %d %d %d\n", 
@@ -324,6 +207,30 @@ void scan_mem_using_procstat(sqlite3 *db, char* arg_pid)
 		int db_rc = sql_query_exec(db, query, NULL, NULL);
 		debug_print(TROUBLESHOOT, "Key Stage: Inserted vm entry info to the database (rc=%d)\n", db_rc);
 		free(insert_vm_query_values);
+		free(query);
+	}
+
+	// Also persist the bss, plt and got info for this source to the same elf_sym table
+	for (int i=0; i<ssect_index; i++) {
+		char *query;
+		asprintf(&query,	
+			"UPDATE vm SET "
+			"bss_addr=\"0x%lx\", "
+			"bss_size=\"0x%lx\", "
+			"plt_addr=\"0x%lx\", "
+			"plt_size=\"0x%lx\", "
+			"got_addr=\"0x%lx\", "
+			"got_size=\"0x%lx\" " 
+			"WHERE mmap_path=\"%s\";",
+			ssect[i].bss_addr, 
+			ssect[i].bss_size, 
+			ssect[i].plt_addr, 
+			ssect[i].plt_size,
+			ssect[i].got_addr, 
+			ssect[i].got_size, 
+			ssect[i].mmap_path);
+	
+		sql_query_exec(db, query, NULL, NULL);
 		free(query);
 	}
 

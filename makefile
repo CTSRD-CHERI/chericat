@@ -46,5 +46,10 @@ $(BIN)/vm_caps_view.o: $(SRC)/vm_caps_view.c $(DEPS)/vm_caps_view.h
 $(BIN)/caps_syms_view.o: $(SRC)/caps_syms_view.c $(DEPS)/caps_syms_view.h
 	$(CC) $(CFLAGS) $(INC) -c -o $(BIN)/caps_syms_view.o $(SRC)/caps_syms_view.c
 
+TEST=./tests
+
+test: $(TEST)/db_process.c $(BIN)/common.o
+	$(CC) $(CFLAGS) $(INC) $(LDFLAGS) -DSQLITE_MEMDEBUG -lsqlite3 -o $(TARGET) $(BIN)/common.o $(TEST)/db_process.c -o $(TEST)/db_process
+
 clean:
 	rm -rf $(BIN)/*.o $(BIN)/chericat

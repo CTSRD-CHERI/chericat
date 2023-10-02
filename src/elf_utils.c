@@ -16,6 +16,7 @@
 
 #include "common.h"
 #include "db_process.h"
+#include "elf_utils.h"
 
 static const char *
 st_bind(unsigned int sbind)
@@ -113,7 +114,7 @@ Elf *read_elf(char *path) {
 	return elfFile;
 }
 
-void get_elf_info(sqlite3 *db, Elf *elfFile, char *source, u_long source_base) 
+void get_elf_info(sqlite3 *db, Elf *elfFile, char *source, u_long source_base, special_sections **ssect, int ssect_index) 
 {
 	debug_print(TROUBLESHOOT, "Key Stage: Create database and tables to store symbols obtained from ELF of the loaded binaries\n", NULL);
 	create_elf_sym_db(db);
@@ -141,16 +142,36 @@ void get_elf_info(sqlite3 *db, Elf *elfFile, char *source, u_long source_base)
 
 	char *insert_syms_query_values;
 	int query_values_index=0;
-	char *section_name;
+	//u_long bss_addr, plt_addr, got_addr;
+	//size_t bss_size, plt_size, got_size;
+
+	special_sections **ssect_cast = (special_sections **)ssect;
 
 	while ((scn = elf_nextscn(elfFile, scn)) != NULL) {
 		gelf_getshdr(scn, &shdr);
 
+		char *section_name;
 		if ((section_name = elf_strptr(elfFile, shstrndx, shdr.sh_name)) == NULL) {
 			fprintf(stderr, "elf_strptr() failed: %s\n", elf_errmsg(-1));
 		}
 
-		//(void)printf("Section %-4.4jd %s\n", (uintmax_t)elf_ndxscn(scn), section_name);
+		special_sections ssect_captured;
+		if (strcmp(section_name, ".bss") == 0) {
+			ssect_captured.bss_addr = shdr.sh_addr+source_base;
+			ssect_captured.bss_size = shdr.sh_size;
+
+		}
+                if (strcmp(section_name, ".plt") == 0) {
+                        ssect_captured.plt_addr = shdr.sh_addr+source_base;
+			ssect_captured.plt_size = shdr.sh_size;
+                }
+                if (strcmp(section_name, ".got") == 0) {
+                        ssect_captured.got_addr = shdr.sh_addr+source_base;
+			ssect_captured.got_size = shdr.sh_size;
+                }
+
+		ssect_captured.mmap_path = strdup(source);
+		(*ssect_cast)[ssect_index] = ssect_captured;
 
 		if (shdr.sh_type == SHT_DYNSYM || shdr.sh_type == SHT_SYMTAB) {
 			if (shdr.sh_type == SHT_DYNSYM) {
@@ -205,7 +226,7 @@ void get_elf_info(sqlite3 *db, Elf *elfFile, char *source, u_long source_base)
 	}
 	
 	if (insert_syms_query_values != NULL) {
-		char query_hdr[] = "INSERT INTO elf_sym VALUES";
+		char query_hdr[] = "INSERT INTO elf_sym VALUES ";
 		char* query;
 		asprintf(&query, "%s%s;", query_hdr, insert_syms_query_values);
 

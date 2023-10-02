@@ -405,8 +405,8 @@ int get_cap_info_for_lib(sqlite3 *db, cap_info **cap_info_captured_ptr, char *li
 	}
 }
 
-void db_info_capture_test()
-//int main(int argc, char *argv[])
+//void db_info_capture_test()
+int main(int argc, char *argv[])
 {
 	printf("Testing Testing\n");
 
