@@ -44,8 +44,8 @@ void caps_syms_view(sqlite3 *db, char *lib)
 		xo_emit("{:bottom_dash/-}");
 	}
 
-	xo_emit("{T:/\n%12s %29s %9s %53s %30s %9s}\n",
-		"CAP_LOC", "CAP_LOC_SYM", "TYPE", "CAP_INFO", "CAP_SYM", "TYPE");
+	xo_emit("{T:/\n%12s %43-s %45-s %s}\n",
+		"CAP_LOC", " CAP_LOC_SYM (TYPE)", "CAP_INFO", "CAP_SYM (TYPE)");
 		
 	for (int i=0; i<cap_count; i++) {
 		xo_open_instance("cap_sym_output");
@@ -72,23 +72,33 @@ void caps_syms_view(sqlite3 *db, char *lib)
 
 		for (int n=0; n<sym_name_for_cap_loc_index; n++) {
 			xo_emit("{:/%12s}", cap_info_captured[i].cap_loc_addr);
-			xo_emit("{:/%30s}", sym_name_for_cap_loc[n]);
-			xo_emit("{:/%10s}", type_for_cap_loc[n]);
-                    
+
+			char *formatted_sym_info_for_loc = NULL;
+			asprintf(&formatted_sym_info_for_loc, "%s (%s)",
+					sym_name_for_cap_loc[n],
+					type_for_cap_loc[n]);
+			
+			xo_emit("{:/  %43-s}", formatted_sym_info_for_loc);
+			free(formatted_sym_info_for_loc);
+
 			char *formatted_cap_info = NULL;
-				asprintf(&formatted_cap_info, "%s (%s,%s-%s)",
-					cap_info_captured[i].cap_addr,
-					cap_info_captured[i].perms,
-					cap_info_captured[i].base,
-					cap_info_captured[i].top);
-				xo_emit("{:capinfo/%55s}", formatted_cap_info);
-		
+			asprintf(&formatted_cap_info, "%s[%s,-%s]",
+				cap_info_captured[i].cap_addr,
+				cap_info_captured[i].perms,
+				cap_info_captured[i].base,
+				cap_info_captured[i].top);
+			xo_emit("{:capinfo/% 45-s}", formatted_cap_info);
+			free(formatted_cap_info);
+
 			if (sym_name_for_cap_index > 0) {
-				xo_emit("{:/%30s}", sym_name_for_cap[0]);
-				xo_emit("{:/%10s}\n", type_for_cap[0]);		
+				char *formatted_sym_info_for_cap = NULL;
+				asprintf(&formatted_sym_info_for_cap, "%s (%s)",
+						sym_name_for_cap[0],
+						type_for_cap[0]);
+				xo_emit("{:/ %43-s}\n", formatted_sym_info_for_cap);
+				free(formatted_sym_info_for_cap);
 			} else {
-				xo_emit("{:/%30s}", "NO_SYM");
-				xo_emit("{:/%10s}\n", "NO_TYPE");
+				xo_emit("{:/ %40-s}\n", "SYM NOT FOUND");
 			}
 		}
 
