@@ -31,7 +31,7 @@ def show_caps_to_bin(db, path, graph):
         if path in cap_path:
             node_label = cap_addr
             cap_node = gen_gv_records.gen_node(cap_addr, cap_addr +"|"+cap_perms+"|"+cap_base+"-"+cap_top, "pink")
-            nodes.update(cap_node)
+            nodes.append(cap_node)
 
     gen_gv_records.gen_records(graph, nodes, edges)
 
