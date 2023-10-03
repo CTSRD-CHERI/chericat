@@ -1,14 +1,9 @@
 import graphviz
-import json
-import sqlite3
 import sys, os, argparse
-import math
 
-import gen_gv_records
-import all_binary_graph
+import db_utils
+import full_graph
 import cap_graph
-
-from IPython.display import display
 
 parser = argparse.ArgumentParser(prog='chericat_cli')
 parser.add_argument(
@@ -19,13 +14,13 @@ parser.add_argument(
 
 parser.add_argument(
 	'-g', 
-	help='Binary Graph', 
+	help='Generate full capability relationship in mmap graph', 
 	action='store_true',
 )
 
 parser.add_argument(
 	'-l', 
-	help='Show capabilities referencing the provided library <path>',
+	help='Show capabilities referencing the provided library <libname>',
 	nargs=1,
 )
     
@@ -48,7 +43,7 @@ if args.d:
 
 if args.g:
 	digraph = graphviz.Digraph('G', filename='graph_overview.gv')
-	all_binary_graph.binary_graph(db, digraph)
+	full_graph.gen_full_graph(db, digraph)
 	digraph.render(directory='graph-output', view=True)  
 
 if args.l:
@@ -57,7 +52,7 @@ if args.l:
 	digraph.render(directory='graph-output', view=True)  
 
 if args.r:
-	print(gen_gv_records.run_sql_query(db, args.q[0]))
+	print(db_utils.run_sql_query(db, args.q[0]))
 
 if args.c:
 	digraph = graphviz.Digraph('G', filename=args.c[0]+'_vs_'+args.c[1]+'.gv')

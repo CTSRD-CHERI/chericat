@@ -1,15 +1,16 @@
 import math
 
-import gen_gv_records
+import db_utils
+import gv_utils
 
 def show_caps_to_bin(db, path, graph):
     get_caps_q = "SELECT * FROM cap_info"
-    caps = gen_gv_records.run_sql_query(db, get_caps_q)
+    caps = db_utils.run_sql_query(db, get_caps_q)
     
     lib_start_q = "SELECT start_addr FROM vm WHERE mmap_path LIKE '%" + str(path) + "%'"
     lib_end_q = "SELECT end_addr FROM vm WHERE mmap_path LIKE '%" + str(path) + "%'"
-    lib_start_addrs = gen_gv_records.run_sql_query(db, lib_start_q)
-    lib_end_addrs = gen_gv_records.run_sql_query(db, lib_end_q)
+    lib_start_addrs = db_utils.run_sql_query(db, lib_start_q)
+    lib_end_addrs = db_utils.run_sql_query(db, lib_end_q)
     
     # node showing the loaded library, with cap records pointing into it
     # We have all the information here at this point, just need to graph it
@@ -18,7 +19,7 @@ def show_caps_to_bin(db, path, graph):
     nodes = []
     edges = []
     
-    nodes.append(gen_gv_records.gen_node(path, path, "lightblue"))
+    nodes.append(gv_utils.gen_node(path, path, "lightblue"))
     
     for cap in caps:
         cap_loc_addr = cap[0] 
@@ -30,27 +31,27 @@ def show_caps_to_bin(db, path, graph):
         
         if path in cap_path:
             node_label = cap_addr
-            cap_node = gen_gv_records.gen_node(cap_addr, cap_addr +"|"+cap_perms+"|"+cap_base+"-"+cap_top, "pink")
+            cap_node = gv_utils.gen_node(cap_addr, cap_addr +"|"+cap_perms+"|"+cap_base+"-"+cap_top, "pink")
             nodes.append(cap_node)
 
-    gen_gv_records.gen_records(graph, nodes, edges)
+    gv_utils.gen_records(graph, nodes, edges)
 
 def show_caps_between_two_libs(db, lib1, lib2, graph):
     lib1_caps_q = "SELECT * FROM cap_info WHERE cap_loc_path LIKE '%" + str(lib1) + "%'"
-    lib1_caps = gen_gv_records.run_sql_query(db, lib1_caps_q)
+    lib1_caps = db_utils.run_sql_query(db, lib1_caps_q)
     
     lib2_caps_q = "SELECT * FROM cap_info WHERE cap_loc_path LIKE '%" + str(lib2) + "%'"
-    lib2_caps = gen_gv_records.run_sql_query(db, lib2_caps_q)
+    lib2_caps = db_utils.run_sql_query(db, lib2_caps_q)
     
     lib1_start_q = "SELECT start_addr FROM vm WHERE mmap_path LIKE '%" + str(lib1) + "%'"
     lib1_end_q = "SELECT end_addr FROM vm WHERE mmap_path LIKE '%" + str(lib1) + "%'"
-    lib1_start_addrs = gen_gv_records.run_sql_query(db, lib1_start_q)
-    lib1_end_addrs = gen_gv_records.run_sql_query(db, lib1_end_q)
+    lib1_start_addrs = db_utils.run_sql_query(db, lib1_start_q)
+    lib1_end_addrs = db_utils.run_sql_query(db, lib1_end_q)
     
     lib2_start_q = "SELECT start_addr FROM vm WHERE mmap_path LIKE '%" + str(lib2) + "%'"
     lib2_end_q = "SELECT end_addr FROM vm WHERE mmap_path LIKE '%" + str(lib2) + "%'"
-    lib2_start_addrs = gen_gv_records.run_sql_query(db, lib2_start_q)
-    lib2_end_addrs = gen_gv_records.run_sql_query(db, lib2_end_q)
+    lib2_start_addrs = db_utils.run_sql_query(db, lib2_start_q)
+    lib2_end_addrs = db_utils.run_sql_query(db, lib2_end_q)
     
     # node showing the loaded libraries, with cap records pointing into it
     # We have all the information here at this point, just need to graph it
@@ -59,8 +60,8 @@ def show_caps_between_two_libs(db, lib1, lib2, graph):
     nodes = []
     edges = []
     
-    nodes.append(gen_gv_records.gen_node(lib1, lib1, "lightblue"))
-    nodes.append(gen_gv_records.gen_node(lib2, lib2, "pink"))
+    nodes.append(gv_utils.gen_node(lib1, lib1, "lightblue"))
+    nodes.append(gv_utils.gen_node(lib2, lib2, "pink"))
     
     for cap1 in lib1_caps:
         cap_loc_addr = cap1[0] 
@@ -104,4 +105,4 @@ def show_caps_between_two_libs(db, lib1, lib2, graph):
                         break
                 edges.append({"src":lib2, "dest":lib1, "label":cap_perms, "penwidth":str(penwidth_weight)})
 
-    gen_gv_records.gen_records(graph, nodes, edges)
+    gv_utils.gen_records(graph, nodes, edges)
