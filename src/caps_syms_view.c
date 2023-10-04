@@ -54,8 +54,8 @@ void caps_syms_view(sqlite3 *db, char *lib)
 		char *type_for_cap_loc[50];
 		int sym_name_for_cap_loc_index=0, type_for_cap_loc_index=0;
 
-		char *sym_name_for_cap[30];
-		char *type_for_cap[30];
+		char *sym_name_for_cap[50];
+		char *type_for_cap[50];
 		int sym_name_for_cap_index=0, type_for_cap_index=0;
 
 		for (int s=0; s<sym_count; s++) {
