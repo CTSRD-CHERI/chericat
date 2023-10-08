@@ -85,7 +85,6 @@ void caps_syms_view(sqlite3 *db, char *lib)
 			asprintf(&formatted_cap_info, "%s[%s,-%s]",
 				cap_info_captured[i].cap_addr,
 				cap_info_captured[i].perms,
-				cap_info_captured[i].base,
 				cap_info_captured[i].top);
 			xo_emit("{:capinfo/% 45-s}", formatted_cap_info);
 			free(formatted_cap_info);

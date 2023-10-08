@@ -13,6 +13,7 @@
 
 #include <sys/user.h>
 #include <sys/wait.h>
+#include <sys/time.h>
 
 #include "common.h"
 #include "db_process.h"
@@ -215,8 +216,22 @@ void get_elf_info(sqlite3 *db, Elf *elfFile, char *source, u_long source_base, s
 					}
 					free(query_value);
 					query_values_index++;
+					
+					if ((i % 200) == 0) {
+						if (insert_syms_query_values != NULL) {
+							char query_hdr[] = "INSERT INTO elf_sym VALUES ";
+							char* query;
+							asprintf(&query, "%s%s;", query_hdr, insert_syms_query_values);
 
-					//debug_print(TROUBLESHOOT, "Key Stage: Inserted elf symbol entry info to the database (rc=%d)\n", db_rc);
+							int db_rc = sql_query_exec(db, query, NULL, NULL);
+							debug_print(TROUBLESHOOT, "Key Stage: Inserted sym info to the database (rc=%d)\n", db_rc);
+
+							insert_syms_query_values = NULL;
+							query_values_index = 0;
+							free(query);
+						}
+					}
+
 				}
 			}	
 		}
@@ -232,10 +247,10 @@ void get_elf_info(sqlite3 *db, Elf *elfFile, char *source, u_long source_base, s
 
 		int db_rc = sql_query_exec(db, query, NULL, NULL);
 		debug_print(TROUBLESHOOT, "Key Stage: Inserted sym info to the database (rc=%d)\n", db_rc);
+
 		free(insert_syms_query_values);
 		free(query);
 	}
-
 	elf_end(elfFile);
 	
 }

@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <string.h>
 #include <sqlite3.h>
+#include <time.h>
 
 #include <sys/param.h>
 #include <sys/queue.h>
@@ -26,10 +27,9 @@
 #include "cap_capture.h"
 #include "elf_utils.h"
 
-bool string_seen_before(char *string_array[], char *string)
+static bool string_seen_before(char *string_array[], char *string)
 {
-	//int size = sizeof(string_array)/sizeof(char*);
-	int size = 50;
+	int size = sizeof(string_array)/sizeof(char*);
 	for (int i=0; i<size; i++) {
 		if (strcmp(string_array[i], string) == 0) {
 			return 1;
