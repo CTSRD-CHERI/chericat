@@ -68,7 +68,7 @@ void get_capability(int pid, void* addr, int current_cap_count, char *path, char
 
 	// Return the captured caps into multiple values to be inserted using a single sql statement
 	int query_size = asprintf(query_vals, "(\"%p\", \"%s\", \"%p\", \"%s\", \"%p\", \"%p\")", 
-					addr, path, (void*)copy, permsread, (void*)base, (void*)top);
+					addr, path, (void*)copy, permsread, (void*)(uintptr_t)base, (void*)(uintptr_t)top);
 	assert(query_size != -1);
 
         if (retno != 0) {
