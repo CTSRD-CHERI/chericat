@@ -2,8 +2,9 @@ BIN=./bin
 SRC=./src
 DEPS=./includes
 
-CC=cc
-CFLAGS=-g -Wall -Wcheri -O0
+CC?=cc
+CFLAGS?=-g -O0
+CFLAGS+=-Wall -Wcheri
 
 INC=-I/usr/include -I/usr/local/include -I/home/psjm3/util_libs/libelf/include/elf -I$(DEPS)
 LDFLAGS=-L/usr/lib -L/usr/local/lib -L/home/psjm3/releng/22.12/lib/libelf
