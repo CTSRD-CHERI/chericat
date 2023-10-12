@@ -5,7 +5,7 @@
 
 A Capability Analysis Tool for CHERI
 
-The program “chericat” is a standalone tool that runs on CheriBSD. It can be used by either attaching to a running process or parsing a coredump to produce capability-related data, whic is stored in a local SQL database. The data can then be queried to retrieve information regarding the capabilities created at that snapshot.
+The program “chericat” is a standalone tool that runs on CheriBSD. It can be used by either attaching to a running process or parsing a coredump to produce capability-related data, which is stored in a local SQL database. The data can then be queried to retrieve information regarding the capabilities created at that snapshot.
 
 ```
 Usage: chericat [-g <debug level>] [-d <database name>] [-p <pid>] [-v] [-c <binary name>]
