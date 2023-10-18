@@ -27,9 +27,10 @@
 #include "cap_capture.h"
 #include "elf_utils.h"
 
+/*
 static bool string_seen_before(char *string_array[], char *string)
 {
-	int size = sizeof(string_array)/sizeof(char*);
+	int size = sizeof((char **)string_array)/sizeof(char*);
 	for (int i=0; i<size; i++) {
 		if (strcmp(string_array[i], string) == 0) {
 			return 1;
@@ -37,7 +38,7 @@ static bool string_seen_before(char *string_array[], char *string)
 	}
 	return 0;
 }
-
+*/
 /*              
  * scan_mem
  * When the -s option is used to attach this tool to a running process.
