@@ -110,11 +110,6 @@ int create_vm_cap_db(sqlite3 *db)
 		debug_print(TROUBLESHOOT, "Database table vm_table created successfully\n", NULL);
 	}
 	
-	/*
-	sqlite3_int64 pCurrent=0, pHighwater=0;
-	sqlite3_status64(SQLITE_STATUS_MEMORY_USED, &pCurrent, &pHighwater, 0);
-	debug_print(VERBOSE, "sqlite mem used, current: %lld high water: %lld\n", pCurrent, pHighwater);
-	*/
 	return (0);
 }
 
@@ -146,11 +141,6 @@ int create_elf_sym_db(sqlite3 *db)
 		debug_print(TROUBLESHOOT, "Database table elf_sym_table created successfully\n", NULL);
 	}
 
-	/*
-	sqlite3_int64 pCurrent=0, pHighwater=0;
-	sqlite3_status64(SQLITE_STATUS_MEMORY_USED, &pCurrent, &pHighwater, 0);
-	debug_print(VERBOSE, "sqlite mem used, current: %lld high water: %lld\n", pCurrent, pHighwater);
-	*/
 	return (0);
 }
 
@@ -202,7 +192,7 @@ int sql_query_exec(sqlite3 *db, char* query, int (*callback)(void*,int,char**,ch
 	
 	sqlite3_int64 pCurrent=0, pHighwater=0;
 	sqlite3_status64(SQLITE_STATUS_MEMORY_USED, &pCurrent, &pHighwater, 0);
-	debug_print(VERBOSE, "sqlite mem used, current: %lld high water: %lld\n", pCurrent, pHighwater);
+	debug_print(TROUBLESHOOT, "sqlite mem used, current: %lld high water: %lld\n", pCurrent, pHighwater);
 	
 	return (0);
 }
@@ -438,7 +428,6 @@ int get_cap_info_for_lib(sqlite3 *db, cap_info **cap_info_captured_ptr, char *li
 }
 
 void db_info_capture_test()
-//int main(int argc, char *argv[])
 {
 	printf("Testing Testing\n");
 

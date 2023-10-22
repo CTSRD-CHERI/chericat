@@ -54,6 +54,7 @@
 
 #include "common.h"
 #include "db_process.h"
+
 /*
  * ptrace_attach(int pid)
  * Calls the ptrace API to remotely attach a running process that has
@@ -126,11 +127,6 @@ void read_data(int pid, void *addr, void *vptr, int len)
 
 	while (count < len) {
 		word = ptrace(PT_READ_D, pid, ((caddr_t)addr)+count, 0);
-		if (0) { //ignore for now
-		if (errno != 0) {
-			fprintf(stderr, "PT_READ_D has failed to read: %p\n", addr);
-		}
-		}
 		count += sizeof(int);
 		ptr[i++] = word;
 	}
