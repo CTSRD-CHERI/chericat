@@ -43,11 +43,6 @@
 #define VERBOSE 2 
 #define TROUBLESHOOT 3
 
-//int print_level;
-
-//#define debug_print(level, fmt, ...) \
-//	do { if (level <= print_level) { fprintf(stdout, fmt, __VA_ARGS__); }} while(0)
-
 void set_print_level(int level);
 void debug_print(int level, const char *fmt, ...);
 

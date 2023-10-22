@@ -50,8 +50,6 @@
 #include "cap_capture.h"
 #include "ptrace_utils.h"
 
-/* get_capability
- */
 void get_capability(int pid, void* addr, int current_cap_count, char *path, char **query_vals)
 {
 	struct ptrace_io_desc piod;
@@ -62,7 +60,7 @@ void get_capability(int pid, void* addr, int current_cap_count, char *path, char
         piod.piod_addr = capbuf;
         piod.piod_len = sizeof(capbuf);
 	
-        // ***** Sending IO trace request and obtain the capability pointed to by the provided address *****/
+        // Sending IO trace request and obtain the capability pointed to by the provided address
 	int retno = ptrace(PT_IO, pid, (caddr_t)&piod, 0);
 
 	if (DEBUG) {
@@ -76,11 +74,9 @@ void get_capability(int pid, void* addr, int current_cap_count, char *path, char
 	uintcap_t copy;
 
 	memcpy(&copy, &capbuf[1], sizeof(copy));
-	//strcpy(cap_info[current_cap_count].cap_addr, copy);
 	debug_print(VERBOSE, "Address of the copied capability: %#p\n", (void*)copy);
 
 	// Getting permissions of the obtained capability
-
 	char str[128];
 	char permsread[16];
 	int tokens;
@@ -92,11 +88,6 @@ void get_capability(int pid, void* addr, int current_cap_count, char *path, char
 
 	debug_print(VERBOSE, "Using strfcap API to parse the cap, tokens: %d permsread: %s base: 0x%lx top: 0x%lx attrread: %31s\n", 
 			tokens, permsread, base, top, attrread);
-
-	//cap_info[current_cap_count].perms = malloc(sizeof(char)*strlen(permsread)+1);
-	//assert(cap_info[current_cap_count].perms != NULL);
-	
-	//strcpy(cap_info[current_cap_count].perms, permsread);
 
 	// Return the captured caps into multiple values to be inserted using a single sql statement
 	int query_size = asprintf(query_vals, "(\"%p\", \"%s\", \"%p\", \"%s\", \"%p\", \"%p\")", 

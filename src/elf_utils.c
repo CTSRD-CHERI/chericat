@@ -175,8 +175,6 @@ void get_elf_info(sqlite3 *db, Elf *elfFile, char *source, u_long source_base, s
 
 	char *insert_syms_query_values;
 	int query_values_index=0;
-	//u_long bss_addr, plt_addr, got_addr;
-	//size_t bss_size, plt_size, got_size;
 
 	special_sections **ssect_cast = (special_sections **)ssect;
 
