@@ -110,9 +110,10 @@ def show_caps_between_two_libs(db, lib1, lib2, graph):
             lib2_start_addr = lib2_start_addrs[lib2_addr_index][0]
             lib2_end_addr = lib2_end_addrs[lib2_addr_index][0]
                 
+            # Test if cap1's pointer address is in lib2's address range
             if cap_addr >= lib2_start_addr and cap_addr <= lib2_end_addr:
                 for props in edges:
-                    if props.get("src") == lib1 and props.get("dest") == lib2:
+                    if props.get("src") == lib1 and props.get("dest") == lib2 and props.get("label") == cap_perms:
                         penwidth_weight = math.log((10**(float(props.get("penwidth"))) + 1), 10)
                         edges.remove(props)
                         break
@@ -129,10 +130,11 @@ def show_caps_between_two_libs(db, lib1, lib2, graph):
         for lib1_addr_index in range(len(lib1_start_addrs)):
             lib1_start_addr = lib1_start_addrs[lib1_addr_index][0]
             lib1_end_addr = lib1_end_addrs[lib1_addr_index][0]
-                
+
+            # Test if cap2's pointer address is in lib1's address range
             if cap_addr >= lib1_start_addr and cap_addr <= lib1_end_addr:
                 for props in edges:
-                    if props.get("src") == lib2 and props.get("dest") == lib1:
+                    if props.get("src") == lib2 and props.get("dest") == lib1 and props.get("label") == cap_perms:
                         penwidth_weight = math.log((10**(float(props.get("penwidth"))) + 1), 10)
                         edges.remove(props)
                         break

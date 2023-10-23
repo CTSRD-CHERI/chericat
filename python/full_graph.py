@@ -49,25 +49,22 @@ def gen_full_graph(db, graph):
     edges = []
     
     for path_list in path_list_json:
+        lib_start_q = "SELECT start_addr FROM vm WHERE mmap_path LIKE '%" + str(path_list[0]) + "%'"
+        lib_end_q = "SELECT end_addr FROM vm WHERE mmap_path LIKE '%" + str(path_list[0]) + "%'"
+        lib_start_addrs = db_utils.run_sql_query(db, lib_start_q)
+        lib_end_addrs = db_utils.run_sql_query(db, lib_end_q)
+        
         if (path_list[0] == "unknown" or 
             path_list[0] == "Stack" or 
             path_list[0] == "Guard"):
             
-            get_start_addr_q = "SELECT start_addr FROM vm WHERE mmap_path=\"" + path_list[0] + "\""
-            # Only interested in the first result?
-            start_addr_list_json = db_utils.run_sql_query(db, get_start_addr_q)
-            path_label = path_list[0] + " (" + start_addr_list_json[0][0] + ")"
+            path_label = path_list[0] + " (" + lib_start_addrs[0][0] + ")"
             fillcolor = "lightgrey"
         else:
             path_label = path_list[0]
             fillcolor = "lightblue"
 
         nodes.append(gv_utils.gen_node(path_label, path_label, fillcolor))
-        
-        lib_start_q = "SELECT start_addr FROM vm WHERE mmap_path LIKE '%" + str(path_list[0]) + "%'"
-        lib_end_q = "SELECT end_addr FROM vm WHERE mmap_path LIKE '%" + str(path_list[0]) + "%'"
-        lib_start_addrs = db_utils.run_sql_query(db, lib_start_q)
-        lib_end_addrs = db_utils.run_sql_query(db, lib_end_q)
         
         for cap in caps:
             cap_loc_addr = cap[0] 
@@ -83,8 +80,14 @@ def gen_full_graph(db, graph):
                 lib_start_addr = lib_start_addrs[lib_addr_index][0]
                 lib_end_addr = lib_end_addrs[lib_addr_index][0]
                 
-                if cap_addr >= lib_start_addr and cap_addr <= lib_end_addr and cap_path != path_list[0]:
-                    
+                # Also remove the appended (.bss/got/plt) and compare
+                if cap_addr >= lib_start_addr and \
+                    cap_addr <= lib_end_addr and \
+                    cap_path != path_list[0] and \
+                    cap_path != path_list[0][:-6] and \
+                    cap_path[:-6] != path_list[0] and \
+                    cap_path[:-6] != path_list[0][:-6]:
+                     
                     if (cap_path == "unknown" or 
                         cap_path == "Stack" or 
                         cap_path == "Guard"):
