@@ -35,6 +35,7 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <libxo/xo.h>
 #include <cheri/cheric.h>
@@ -149,6 +150,11 @@ main(int argc, char *argv[])
 			caps_syms_view(db, optarg);
 			break;
 		case 'd':
+			// First check if db exists
+			if (access(optarg, F_OK) != 0) {
+				fprintf(stderr, "db %s does not exist\n", optarg);
+				exit(1);
+			}
 			dbname = (char*)malloc(strlen(optarg)+1);
 			strcpy(dbname, optarg);
 			break;
