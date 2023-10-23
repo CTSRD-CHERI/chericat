@@ -77,11 +77,20 @@ void scan_mem(sqlite3 *db, char* arg_pid)
 	assert(psp != NULL);
 
 	kipp = procstat_getprocs(psp, KERN_PROC_PID, pid, &pcnt);
-	assert(kipp != NULL);
-	assert(pcnt == 1);
+	if (kipp == NULL) {
+		fprintf(stderr, "Unable to attach to process with pid %d, does it exist?\n", pid);
+		exit(1);
+	}
+	if (pcnt != 1) {
+		fprintf(stderr, "procstat did not get expected result from process %d\n", pid);
+		exit(1);
+	}
 
 	freep = procstat_getvmmap(psp, kipp, &vmcnt);
-	assert(freep != NULL);
+	if (freep == NULL) {
+		fprintf(stderr, "Unable to obtain the vm map information from process %d, does cherciat have the right privilege?\n", pid);
+		exit(1);
+	}
 
 	create_vm_cap_db(db);
 	debug_print(TROUBLESHOOT, "Key Stage: Attach process %d using ptrace\n", pid);
