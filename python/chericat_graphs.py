@@ -38,7 +38,7 @@ import db_utils
 import full_graph
 import cap_graph
 
-parser = argparse.ArgumentParser(prog='chericat_cli')
+parser = argparse.ArgumentParser(prog='chericat_graphs')
 parser.add_argument(
 	'-d', 
 	help='The database to use for the queries', 
@@ -51,12 +51,6 @@ parser.add_argument(
 	action='store_true',
 )
 
-parser.add_argument(
-	'-l', 
-	help='Show capabilities referencing the provided library <libname>',
-	nargs=1,
-)
-    
 parser.add_argument(
 	'-r', 
 	help='Executes the SQL query on the provided db',
@@ -79,13 +73,8 @@ if args.g:
 	full_graph.gen_full_graph(db, digraph)
 	digraph.render(directory='graph-output', view=True)  
 
-if args.l:
-	digraph = graphviz.Digraph('G', filename='graph_for_'+args.l[0]+'.gv')
-	cap_graph.show_caps_to_bin(db, args.l[0], digraph)
-	digraph.render(directory='graph-output', view=True)  
-
 if args.r:
-	print(db_utils.run_sql_query(db, args.q[0]))
+	print(db_utils.run_sql_query(db, args.r[0]))
 
 if args.c:
 	digraph = graphviz.Digraph('G', filename=args.c[0]+'_vs_'+args.c[1]+'.gv')
