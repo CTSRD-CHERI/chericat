@@ -34,6 +34,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <assert.h>
+#include <err.h>
 #include <errno.h>
 #include <string.h>
 #include <sqlite3.h>
@@ -78,18 +79,15 @@ void scan_mem(sqlite3 *db, char* arg_pid)
 
 	kipp = procstat_getprocs(psp, KERN_PROC_PID, pid, &pcnt);
 	if (kipp == NULL) {
-		fprintf(stderr, "Unable to attach to process with pid %d, does it exist?\n", pid);
-		exit(1);
+		errx(1, "Unable to attach to process with pid %d, does it exist?\n", pid);
 	}
 	if (pcnt != 1) {
-		fprintf(stderr, "procstat did not get expected result from process %d\n", pid);
-		exit(1);
+		errx(1, "procstat did not get expected result from process %d\n", pid);
 	}
 
 	freep = procstat_getvmmap(psp, kipp, &vmcnt);
 	if (freep == NULL) {
-		fprintf(stderr, "Unable to obtain the vm map information from process %d, does cherciat have the right privilege?\n", pid);
-		exit(1);
+		errx(1, "Unable to obtain the vm map information from process %d, does cherciat have the right privilege?\n", pid);
 	}
 
 	create_vm_cap_db(db);
