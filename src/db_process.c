@@ -33,6 +33,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <err.h>
 #include <errno.h>
 #include <string.h>
 #include <sqlite3.h>
@@ -53,6 +54,45 @@ char *get_dbname() {
 		dbname = strdup(":memory:");
 	}
 	return dbname;
+}
+
+/*
+ * db_table_exists(db, tname)
+ * Check if the table with the provided table name tname exists in database db.
+ * Returns 0 if the table doesn't exist, as no data can be retrieve for the
+ * request, this usually result in program exit.
+ * Returns 1 if the table exists.
+ */
+int db_table_exists(sqlite3 *db, char *tname)
+{
+	int exists = 0;
+
+	int rc;
+	sqlite3_stmt *stmt;
+	const char *check_table_q = "SELECT 1 FROM sqlite_master where type='table' and name=?";
+	
+	rc = sqlite3_prepare_v2(db, check_table_q, -1, &stmt, NULL);
+
+	if (rc != SQLITE_OK) {
+		errx(1, "SQL error: %s\n", sqlite3_errmsg(db));
+	}
+
+	sqlite3_bind_text(stmt, 1, tname, -1, SQLITE_TRANSIENT);
+	rc = sqlite3_step(stmt);
+	
+	if (rc == SQLITE_ROW) {
+		exists = 1;
+		debug_print(VERBOSE, "Found %s table in db %s\n", tname, dbname);
+	} else if (rc == SQLITE_DONE) {
+		exists = 0;
+		debug_print(VERBOSE, "%s does not exist in db %s\n", tname, dbname);
+	} else {
+		sqlite3_finalize(stmt);
+		errx(1, "SQL error: %s\n", sqlite3_errmsg(db));
+	}
+
+	sqlite3_finalize(stmt);
+	return exists;
 }
 
 /*
@@ -153,7 +193,6 @@ int begin_transaction(sqlite3 *db)
 	if (rc != SQLITE_OK) {
 		fprintf(stderr, "SQL error: %s\n", messageError);
 		sqlite3_free(messageError);
-		//sqlite3_close(db);
 		return (1);
 	}
 
@@ -169,7 +208,6 @@ int commit_transaction(sqlite3 *db)
 	if (rc != SQLITE_OK) {
 		fprintf(stderr, "SQL error: %s\n", messageError);
 		sqlite3_free(messageError);
-		//sqlite3_close(db);
 		return (1);
 	}
 
@@ -312,6 +350,11 @@ static int sym_info_count_query_callback(void *count, int argc, char **argv, cha
 
 int vm_info_count(sqlite3 *db) 
 {
+	// First check if the vm table exists
+	if (0 == db_table_exists(db, "vm")) {
+		errx(1, "vm table does not exist on db %s", dbname);
+	}
+
         /* Obtain how many vm items from the database first, we can then use it to
          * determine the size of the struct array for holding all the vm entries */
         char *count;
@@ -324,6 +367,11 @@ int vm_info_count(sqlite3 *db)
 
 int cap_info_count(sqlite3 *db)
 {
+	// First check if the vm table exists
+	if (0 == db_table_exists(db, "cap_info")) {
+		errx(1, "cap_info table does not exist on db %s", dbname);
+	}
+
         /* Obtain how many vm items from the database first, we can then use it to
          * determine the size of the struct array for holding all the vm entries */
         char *count;
@@ -336,6 +384,11 @@ int cap_info_count(sqlite3 *db)
 
 int sym_info_count(sqlite3 *db)
 {
+	// First check if the vm table exists
+	if (0 == db_table_exists(db, "elf_sym")) {
+		errx(1, "elf_sym table does not exist on db %s", dbname);
+	}
+
         /* Obtain how many vm items from the database first, we can then use it to
          * determine the size of the struct array for holding all the vm entries */
         char *count;
@@ -348,6 +401,11 @@ int sym_info_count(sqlite3 *db)
 
 int cap_info_for_lib_count(sqlite3 *db, char *lib)
 {       
+	// First check if the vm table exists
+	if (0 == db_table_exists(db, "cap_info")) {
+		errx(1, "cap_info table does not exist on db %s", dbname);
+	}
+
         /* Obtain how many vm items from the database first, we can then use it to
          * determine the size of the struct array for holding all the vm entries */
         char *count;
@@ -364,6 +422,11 @@ int cap_info_for_lib_count(sqlite3 *db, char *lib)
 
 int get_all_vm_info(sqlite3 *db, vm_info **all_vm_info_ptr)
 {
+	// First check if the vm table exists
+	if (0 == db_table_exists(db, "vm")) {
+		errx(1, "vm table does not exist on db %s", dbname);
+	}
+
 	int vm_count = vm_info_count(db);
         *all_vm_info_ptr = (vm_info *)calloc(vm_count, sizeof(vm_info));
         assert (*all_vm_info_ptr != NULL);
@@ -379,6 +442,11 @@ int get_all_vm_info(sqlite3 *db, vm_info **all_vm_info_ptr)
 
 int get_all_cap_info(sqlite3 *db, cap_info **all_cap_info_ptr)
 {
+	// First check if the vm table exists
+	if (0 == db_table_exists(db, "cap_info")) {
+		errx(1, "cap_info table does not exist on db %s", dbname);
+	}
+
 
 	int cap_count = cap_info_count(db);
         *all_cap_info_ptr = (cap_info *)calloc(cap_count, sizeof(cap_info));
@@ -395,6 +463,11 @@ int get_all_cap_info(sqlite3 *db, cap_info **all_cap_info_ptr)
 
 int get_all_sym_info(sqlite3 *db, sym_info **all_sym_info_ptr)
 {
+	// First check if the vm table exists
+	if (0 == db_table_exists(db, "elf_sym")) {
+		errx(1, "elf_sym table does not exist on db %s", dbname);
+	}
+
 	int sym_count = sym_info_count(db);
         *all_sym_info_ptr = (sym_info *)calloc(sym_count, sizeof(sym_info));
         assert (*all_sym_info_ptr != NULL);
@@ -410,6 +483,11 @@ int get_all_sym_info(sqlite3 *db, sym_info **all_sym_info_ptr)
 
 int get_cap_info_for_lib(sqlite3 *db, cap_info **cap_info_captured_ptr, char *lib)
 {
+	// First check if the vm table exists
+	if (0 == db_table_exists(db, "cap_info")) {
+		errx(1, "cap_info table does not exist on db %s", dbname);
+	}
+
 	int cap_count = cap_info_for_lib_count(db, lib);
 	*cap_info_captured_ptr = (cap_info *)calloc(cap_count, sizeof(cap_info));
 	assert (*cap_info_captured_ptr != NULL);
