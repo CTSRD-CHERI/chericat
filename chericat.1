@@ -1,0 +1,91 @@
+.\"-
+.\" SPDX-License-Identifier: BSD-2-Clause
+.\"
+.\" Copyright (c) 2023 Capabilities Limited
+.\"
+.\" This software was developed by Capabilities Limited under Innovate UK
+.\" project 10027440, "Developing and Evaluating an Open-Source Desktop for Arm
+.\" Morello".
+.\"
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\" 1. Redistributions of source code must retain the above copyright
+.\"    notice, this list of conditions and the following disclaimer.
+.\" 2. Redistributions in binary form must reproduce the above copyright
+.\"    notice, this list of conditions and the following disclaimer in the
+.\"    documentation and/or other materials provided with the distribution.
+.\"
+.\" THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+.\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+.\" ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+.\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+.\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+.\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+.\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+.\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+.\" SUCH DAMAGE.
+.\"
+.Dd October 18, 2023
+.Dt CHERICAT 1
+.Os
+.Sh NAME
+.Nm chericat
+.Nd capabilities analysis tool
+.Sh SYNOPSIS
+.Nm
+.Op Fl -libxo
+.Op Fl c Ar libname
+.Op Fl d Ar dbname
+.Op Fl g Ar verbose-level
+.Op Fl p Ar pid
+.Op Fl v
+.Sh DESCRIPTION
+.Nm
+command line tool displays a snapshot of capability information obtained from
+the target process identified by the
+.Ar pid
+argument.
+The capability data is stored in a local SQLite database, provided by
+.Ar dbname
+or in memory if the
+.Ar dbname
+argument is not specified.
+.Pp
+If the
+.Fl -libxo
+flag is specified, the output is generated via
+.Xr libxo 3
+in a selection of difference human and machine readable formats.
+See
+.Xr xo_parse_args 3
+for details on command line arguments.
+.Pp
+The following options are available for
+.Nm :
+.Bl -tag -width indent
+.It Fl c
+Show capabilities with corresponding symbols located in the provided library
+.Ar libname
+.It Fl d
+Provide the database name to store the data collected by chericat.
+If omitted, an in-memory db is used.
+.It Fl g
+Determine the level of debugging messages to be printed:
+0 = No output; 1 = INFO; 2 = VERBOSE; 3 = TROUBLESHOOT
+If omitted, the default is INFO level
+.It Fl p
+Scan the mapped memory and persist the caps data to a database
+.It Fl v
+Show virtual summary info of capabilities in the target process,
+arranged in mmap order.
+.El
+.Sh SEE ALSO
+.Xr procstat 1 ,
+.Xr ps 1 ,
+.Xr libxo 3 ,
+.Xr xo_parse_args 3
+.Sh AUTHORS
+.An Jessica Man Aq Mt psjm3@cam.ac.uk
