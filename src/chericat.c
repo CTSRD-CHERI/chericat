@@ -83,16 +83,6 @@ main(int argc, char *argv[])
 	// the program arguments would then be handled as intended without the libxo arguments.
 	argc = xo_parse_args(argc, argv);
 
-
-	// Create xo handle to store output to a file instead of the default stdout.
-	FILE *fptr;
-	// TODO - provide an option for user to provide file location
-	fptr = fopen("/tmp/chericat_output.json", "w+");
-	if (fptr == NULL) {
-		fprintf(stderr, "file cannot be open");
-		return 1;
-	}
-
 	//TODO: This can be used to direct libxo output to a specific file instead of the console
 	//xo_handle_t *xo_handle = xo_create_to_file(fptr, XO_STYLE_JSON, XOF_WARN|XOF_PRETTY);
 
