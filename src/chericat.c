@@ -83,9 +83,6 @@ main(int argc, char *argv[])
 	// the program arguments would then be handled as intended without the libxo arguments.
 	argc = xo_parse_args(argc, argv);
 
-	//TODO: This can be used to direct libxo output to a specific file instead of the console
-	//xo_handle_t *xo_handle = xo_create_to_file(fptr, XO_STYLE_JSON, XOF_WARN|XOF_PRETTY);
-
 	int optindex;
 	int opt = getopt_long(argc, argv, "g:d:p:vc:", long_options, &optindex);
 
