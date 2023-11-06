@@ -38,8 +38,8 @@
 .Nm
 .Op Fl -libxo
 .Op Fl c Ar libname
-.Op Fl d Ar dbname
-.Op Fl g Ar verbose-level
+.Op Fl f Ar dbname
+.Op Fl d Ar verbose-level
 .Op Fl p Ar pid
 .Op Fl v
 .Sh DESCRIPTION
@@ -69,10 +69,10 @@ The following options are available for
 .It Fl c
 Show capabilities with corresponding symbols located in the provided library
 .Ar libname
-.It Fl d
+.It Fl f
 Provide the database name to store the data collected by chericat.
 If omitted, an in-memory db is used.
-.It Fl g
+.It Fl d
 Determine the level of debugging messages to be printed:
 0 = No output; 1 = INFO; 2 = VERBOSE; 3 = TROUBLESHOOT
 If omitted, the default is INFO level

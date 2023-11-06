@@ -54,14 +54,14 @@
 
 static void usage()
 {
-	fprintf(stderr, "Usage: chericat [-g <debug level>] [-d <database name>] [-p <pid>] [-v]\n\t[-c <binary name>]\n"
+	fprintf(stderr, "Usage: chericat [-d <debug level>] [-f <database name>] [-p <pid>] [-v]\n\t[-c <binary name>]\n"
 			"     debug level - 0 = No output; 1 = INFO; 2 = VERBOSE; 3 = TROUBLESHOOT\n"
 			"     pid - pid of the target process for a snapshot of caps info\n"
 			"     database name - name of the database to store data captured by chericat\n"
 			"Options:\n"
-			"     -g Determine the level of debugging messages to be printed. If omitted,\n"
+			"     -d Determine the level of debugging messages to be printed. If omitted,\n"
 			"        the default is INFO level\n"
-			"     -d Provide the database name to capture the data collected by chericat.\n"
+			"     -f Provide the database name to capture the data collected by chericat.\n"
 			"        If omitted, an in-memory db is used\n"
 			"     -p Scan the mapped memory and persist the caps data to a database\n"
 			"     -v Show virtual summary info of capabilities in the target process,\n"
@@ -72,8 +72,8 @@ static void usage()
 
 static struct option long_options[] = 
 {
-	{"debug_level", required_argument, 0, 'g'},
-	{"database_name", required_argument, 0, 'd'},
+	{"debug_level", required_argument, 0, 'd'},
+	{"database_name", required_argument, 0, 'f'},
 	{"scan_mem", required_argument, 0, 'p'},
 	{"caps_summary", no_argument, 0, 'v'},
 	{"caps_symbols_summary", required_argument, 0, 'c'},
@@ -88,7 +88,7 @@ main(int argc, char *argv[])
 	argc = xo_parse_args(argc, argv);
 
 	int optindex;
-	int opt = getopt_long(argc, argv, "g:d:p:vc:", long_options, &optindex);
+	int opt = getopt_long(argc, argv, "d:f:p:vc:", long_options, &optindex);
 
 	if (opt == -1) {
 		usage();
@@ -140,18 +140,18 @@ main(int argc, char *argv[])
 			}
 			caps_syms_view(db, optarg);
 			break;
-		case 'd':
+		case 'f':
 			dbname = (char*)malloc(strlen(optarg)+1);
 			strcpy(dbname, optarg);
 			break;
-		case 'g':
+		case 'd':
 			set_print_level(atoi(optarg));
 			break;
 		default:
 			usage();
 			exit(0);
 		}
-		opt = getopt_long(argc, argv, "g:d:p:vc:", long_options, &optindex);
+		opt = getopt_long(argc, argv, "d:f:p:vc:", long_options, &optindex);
 	}
 
 	if (db != NULL) {
