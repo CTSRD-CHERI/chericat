@@ -219,8 +219,13 @@ void scan_mem(sqlite3 *db, char* arg_pid)
 		// Divide the vm block into pages, and iterate each page to find the tags that reference each
 		// address within the same page.
 		ptrace_attach(pid);
-		for (u_long start=kivp->kve_start; start<kivp->kve_end; start+=4096) {
-			get_tags(db, pid, start, mmap_path);
+
+		// If the vm block does not allow cap read or write, skip the capability scan
+		if ((kivp->kve_protection & KVME_PROT_READ_CAP) || 
+			(kivp->kve_protection & KVME_PROT_WRITE_CAP)) {
+			for (u_long start=kivp->kve_start; start<kivp->kve_end; start+=4096) {
+				get_tags(db, pid, start, mmap_path);
+			}
 		}
 		ptrace_detach(pid);
        	}
