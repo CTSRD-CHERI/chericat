@@ -54,16 +54,20 @@
 
 static void usage()
 {
-	fprintf(stdout, "\nUsage: chericat [-g <debug level>] [-d <database name>] [-p <pid>] [-v] [-c <binary name>]\n"
+	fprintf(stderr, "Usage: chericat [-g <debug level>] [-d <database name>] [-p <pid>] [-v]\n\t[-c <binary name>]\n"
 			"     debug level - 0 = No output; 1 = INFO; 2 = VERBOSE; 3 = TROUBLESHOOT\n"
 			"     pid - pid of the target process for a snapshot of caps info\n"
 			"     database name - name of the database to store data captured by chericat\n"
 			"Options:\n"
-			"     -g Determine the level of debugging messages to be printed. If omitted, the default is INFO level\n"
-			"     -d Provide the database name to capture the data collected by chericat. If omitted, an in-memory db is used\n"
+			"     -g Determine the level of debugging messages to be printed. If omitted,\n"
+			"        the default is INFO level\n"
+			"     -d Provide the database name to capture the data collected by chericat.\n"
+			"        If omitted, an in-memory db is used\n"
 			"     -p Scan the mapped memory and persist the caps data to a database\n"
-			"     -v Show virtual summary info of capabilities in the target process, arranged in mmap order\n"
-			"     -c Show capabilities with corresponding symbols located in the provided binary\n\n");
+			"     -v Show virtual summary info of capabilities in the target process,\n"
+			"        arranged in mmap order\n"
+			"     -c Show capabilities with corresponding symbols located in the provided\n"
+			"        binary\n\n");
 }
 
 static struct option long_options[] = 
