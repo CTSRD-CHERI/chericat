@@ -2,6 +2,7 @@
  * SPDX-License-Identifier: BSD-2-Clause
  *
  * Copyright (c) 2023 Jessica Man
+ * Copyright (c) 2023 Robert N. M. Watson
  *
  * This software was developed by the University of Cambridge Computer
  * Laboratory (Department of Computer Science and Technology) as part of the
@@ -80,58 +81,50 @@ void caps_syms_view(sqlite3 *db, char *lib)
 		"CAP_LOC", " CAP_LOC_SYM (TYPE)", "CAP_INFO", "CAP_SYM (TYPE)");
 		
 	for (int i=0; i<cap_count; i++) {
+		char *formatted_sym_info_for_loc = NULL;
+		char *formatted_cap_info = NULL;
+		char *formatted_sym_info_for_cap = NULL;
+		int s;
+
 		xo_open_instance("cap_sym_output");
 
-		char *sym_name_for_cap_loc[50];
-		char *type_for_cap_loc[50];
-		int sym_name_for_cap_loc_index=0, type_for_cap_loc_index=0;
-
-		char *sym_name_for_cap[50];
-		char *type_for_cap[50];
-		int sym_name_for_cap_index=0, type_for_cap_index=0;
-
-		for (int s=0; s<sym_count; s++) {
+		/* Capability location information. */
+		xo_emit("{:/%12s}", cap_info_captured[i].cap_loc_addr);
+		for (s=0; s<sym_count; s++) {
 			if (strcmp(cap_info_captured[i].cap_loc_addr, sym_info_captured[s].addr) == 0) {
-				sym_name_for_cap_loc[sym_name_for_cap_loc_index++] = strdup(sym_info_captured[s].sym_name);
-				type_for_cap_loc[type_for_cap_loc_index++] = strdup(sym_info_captured[s].type);
+				asprintf(&formatted_sym_info_for_loc, "%s (%s)",
+				    sym_info_captured[s].sym_name,
+				    sym_info_captured[s].type);
+				break;
 			}
-			
+		}
+		if (s == sym_count)
+			asprintf(&formatted_sym_info_for_loc, "%s (%s)", "-", "-");
+		xo_emit("{:/  %43-s}", formatted_sym_info_for_loc);
+		free(formatted_sym_info_for_loc);
+
+		/* Capability range and permissions. */
+		asprintf(&formatted_cap_info, "%s[%s,-%s]",
+		    cap_info_captured[i].cap_addr,
+		    cap_info_captured[i].perms,
+		    cap_info_captured[i].top);
+		xo_emit("{:capinfo/% 45-s}", formatted_cap_info);
+		free(formatted_cap_info);
+
+		/* Capability target information. */
+		for (s=0; s<sym_count; s++) {
 			if (strcmp(cap_info_captured[i].cap_addr, sym_info_captured[s].addr) == 0) {
-				sym_name_for_cap[sym_name_for_cap_index++] = strdup(sym_info_captured[s].sym_name);
-				type_for_cap[type_for_cap_index++] = strdup(sym_info_captured[s].type);
-			}
-		}
-
-		for (int n=0; n<sym_name_for_cap_loc_index; n++) {
-			xo_emit("{:/%12s}", cap_info_captured[i].cap_loc_addr);
-
-			char *formatted_sym_info_for_loc = NULL;
-			asprintf(&formatted_sym_info_for_loc, "%s (%s)",
-					sym_name_for_cap_loc[n],
-					type_for_cap_loc[n]);
-			
-			xo_emit("{:/  %43-s}", formatted_sym_info_for_loc);
-			free(formatted_sym_info_for_loc);
-
-			char *formatted_cap_info = NULL;
-			asprintf(&formatted_cap_info, "%s[%s,-%s]",
-				cap_info_captured[i].cap_addr,
-				cap_info_captured[i].perms,
-				cap_info_captured[i].top);
-			xo_emit("{:capinfo/% 45-s}", formatted_cap_info);
-			free(formatted_cap_info);
-
-			if (sym_name_for_cap_index > 0) {
-				char *formatted_sym_info_for_cap = NULL;
 				asprintf(&formatted_sym_info_for_cap, "%s (%s)",
-						sym_name_for_cap[0],
-						type_for_cap[0]);
-				xo_emit("{:/ %43-s}\n", formatted_sym_info_for_cap);
-				free(formatted_sym_info_for_cap);
-			} else {
-				xo_emit("{:/ %40-s}\n", "SYM NOT FOUND");
+				    sym_info_captured[s].sym_name,
+				    sym_info_captured[s].type);
+				break;
 			}
 		}
+		if (s == sym_count)
+			asprintf(&formatted_sym_info_for_cap, "%s (%s)",
+			    "-", "-");
+		xo_emit("{:/ %43-s}\n", formatted_sym_info_for_cap);
+		free(formatted_sym_info_for_cap);
 
 		xo_close_instance("cap_sym_output");
 
