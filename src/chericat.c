@@ -124,9 +124,9 @@ main(int argc, char *argv[])
                 			return (1);
         			}
 			}
-			xo_open_list("vm_cap_output");
+			xo_open_container("vm_view");
 			vm_caps_view(db);
-			xo_close_list("vm_cap_output");
+			xo_close_container("vm_view");
 			break;
 		case 'c':
 			if (db == NULL) {
@@ -138,7 +138,9 @@ main(int argc, char *argv[])
                 			return (1);
         			}
 			}
+			xo_open_container("cap_view");
 			caps_syms_view(db, optarg);
+			xo_close_container("cap_view");
 			break;
 		case 'f':
 			dbname = (char*)malloc(strlen(optarg)+1);
@@ -153,6 +155,8 @@ main(int argc, char *argv[])
 		}
 		opt = getopt_long(argc, argv, "d:f:p:vc:", long_options, &optindex);
 	}
+
+	xo_finish();
 
 	if (db != NULL) {
 		sqlite3_close(db);
