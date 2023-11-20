@@ -89,21 +89,22 @@ void vm_caps_view(sqlite3 *db)
 	int ptrwidth = sizeof(void *);
 	xo_emit("{T:/\n%*s %*s %6s %5s %5s %5s %5s %8s %8s %-5s %-2s %-s}\n",
 		ptrwidth, "START", ptrwidth-1, "END", "PRT", "ro", "rw", "rx", "rwx", "TOTAL", "DENSITY", "FLAGS", "TP", "PATH");
-	
+		
+	xo_open_list("vm_cap_output");
 	for (int i=1; i<vm_count; i++) {
 		xo_open_instance("vm_cap_output");
 		xo_emit("{:mmap_start_addr/%*s}", ptrwidth, vm_info_captured[i].start_addr);
 		xo_emit("{:mmap_end_addr/%*s}", ptrwidth, vm_info_captured[i].end_addr);
 			
-		xo_emit("{d:read/%3s}", vm_info_captured[i].kve_protection & KVME_PROT_READ ?
+		xo_emit("{:read/%3s}", vm_info_captured[i].kve_protection & KVME_PROT_READ ?
 			"r" : "-");
-		xo_emit("{d:write/%s}", vm_info_captured[i].kve_protection & KVME_PROT_WRITE ?
+		xo_emit("{:write/%s}", vm_info_captured[i].kve_protection & KVME_PROT_WRITE ?
 			"w" : "-");
-		xo_emit("{d:exec/%s}", vm_info_captured[i].kve_protection & KVME_PROT_EXEC ?
+		xo_emit("{:exec/%s}", vm_info_captured[i].kve_protection & KVME_PROT_EXEC ?
 			"x" : "-");
-		xo_emit("{d:read_cap/%s}", vm_info_captured[i].kve_protection & KVME_PROT_READ_CAP ? 
+		xo_emit("{:read_cap/%s}", vm_info_captured[i].kve_protection & KVME_PROT_READ_CAP ? 
 			"R" : "-");
-		xo_emit("{d:write_cap/%s} ", vm_info_captured[i].kve_protection & KVME_PROT_WRITE_CAP ? 
+		xo_emit("{:write_cap/%s} ", vm_info_captured[i].kve_protection & KVME_PROT_WRITE_CAP ? 
 			"W" : "-");
 
 		uintptr_t start_addr = (uintptr_t)strtol(vm_info_captured[i].start_addr, NULL, 0);
@@ -209,6 +210,8 @@ void vm_caps_view(sqlite3 *db)
 		free(vm_info_captured[i].start_addr);
 		free(vm_info_captured[i].end_addr);
 		free(vm_info_captured[i].mmap_path);
+		
+		xo_close_instance("vm_cap_output");
 	}
 	for (int k=0; k<cap_count; k++) {
 		free(cap_info_captured[k].cap_loc_addr);
@@ -217,8 +220,8 @@ void vm_caps_view(sqlite3 *db)
 		free(cap_info_captured[k].base);
 		free(cap_info_captured[k].top);
 	}
-	xo_close_instance("vm_cap_output");
 	
+	xo_close_list("vm_cap_output");
 	free(vm_info_captured);
 	free(cap_info_captured);
 
