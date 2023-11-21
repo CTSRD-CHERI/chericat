@@ -65,10 +65,8 @@
  * When the -s option is used to attach this tool to a running process.
  * Uses ptrace to trace the mapped memory and persis the data to a db
  */
-void scan_mem(sqlite3 *db, char* arg_pid) 
+void scan_mem(sqlite3 *db, int pid) 
 {
-	int pid = atoi(arg_pid);
-
 	struct procstat *psp;
 	struct kinfo_proc *kipp;
 	struct kinfo_vmentry *freep, *kivp;
@@ -87,7 +85,7 @@ void scan_mem(sqlite3 *db, char* arg_pid)
 
 	freep = procstat_getvmmap(psp, kipp, &vmcnt);
 	if (freep == NULL) {
-		errx(1, "Unable to obtain the vm map information from process %d, does cherciat have the right privilege?", pid);
+		errx(1, "Unable to obtain the vm map information from process %d, does chericat have the right privilege?", pid);
 	}
 
 	create_vm_cap_db(db);
