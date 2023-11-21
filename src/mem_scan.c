@@ -92,7 +92,7 @@ void scan_mem(sqlite3 *db, char* arg_pid)
 
 	freep = procstat_getvmmap(psp, kipp, &vmcnt);
 	if (freep == NULL) {
-		errx(1, "Unable to obtain the vm map information from process %ld, does cherciat have the right privilege?", pid);
+		errx(1, "Unable to obtain the vm map information from process %ld, does chericat have the right privilege?", pid);
 	}
 
 	create_vm_cap_db(db);
