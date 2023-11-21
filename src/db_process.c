@@ -267,9 +267,33 @@ static int vm_info_query_callback(void *all_vm_info_ptr, int argc, char **argv, 
         vm_info_captured.start_addr = strdup(argv[0]);
         vm_info_captured.end_addr = strdup(argv[1]);
         vm_info_captured.mmap_path = strdup(argv[2]);
-     	vm_info_captured.kve_protection = atoi(argv[3]);
-     	vm_info_captured.mmap_flags = atoi(argv[4]); 
-        vm_info_captured.vnode_type = atoi(argv[5]);
+
+	// Checking that the received values are valid integers
+	// as expected from the vm_info_captured data structure. 
+	// If the check fails, it means the data is invalid. Without
+	// a more sophisticated logic in place to handle invalid data, 
+	// we will just quit the program and let users to examine 
+	// and fix the data before running this function again.
+	char *prot_pEnd;
+	long int prot = strtol(argv[3], &prot_pEnd, 10);
+	if (*prot_pEnd != '\0') {
+		errx(1, "Invalid kve_protection, it should be an integer: %s", argv[3]);
+	}
+     	vm_info_captured.kve_protection = prot;
+
+	char *mmap_flags_pEnd;
+	long int mmap_flags = strtol(argv[4], &mmap_flags_pEnd, 10);
+	if (*mmap_flags_pEnd != '\0') {
+		errx(1, "Invalid mmap_flags, it should be an integer: %s", argv[4]);
+	}
+     	vm_info_captured.mmap_flags = mmap_flags; 
+	
+	char *vnode_type_pEnd;
+	long int vnode_type = strtol(argv[5], &vnode_type_pEnd, 10);
+	if (*vnode_type_pEnd != '\0') {
+		errx(1, "Invalid vnode_type, it should be an integer: %s", argv[5]);
+	}
+        vm_info_captured.vnode_type = vnode_type;
 
 	vm_info_captured.bss_addr = argv[6] == NULL ? NULL : strdup(argv[6]);
         vm_info_captured.bss_size = argv[7] == NULL ? NULL : strdup(argv[7]);
@@ -365,7 +389,11 @@ int vm_info_count(sqlite3 *db)
         char *count;
         sql_query_exec(db, "SELECT COUNT(*) FROM vm;", vm_info_count_query_callback, &count);
 
-	int result_count = atoi(count);
+	char *pEnd;
+	long int result_count = strtol(count, &pEnd, 10);
+	if (*pEnd != '\0') {
+		errx(1, "Query to select count from the vm table has returned an invalid result: %s", count);
+	}
 	free(count);
 	return result_count;
 }
@@ -383,7 +411,11 @@ int cap_info_count(sqlite3 *db)
         char *count;
 	sql_query_exec(db, "SELECT COUNT(*) FROM cap_info;", cap_info_count_query_callback, &count);
 
-        int result_count = atoi(count);
+	char *pEnd;
+	long int result_count = strtol(count, &pEnd, 10);
+	if (*pEnd != '\0') {
+		errx(1, "Query to select count from the cap_info table has returned an invalid result: %s", count);
+	}
 	free(count);
 	return result_count;
 }
@@ -401,7 +433,11 @@ int sym_info_count(sqlite3 *db)
         char *count;
 	sql_query_exec(db, "SELECT COUNT(*) FROM elf_sym;", sym_info_count_query_callback, &count);
 
-        int result_count = atoi(count);
+	char *pEnd;
+	long int result_count = strtol(count, &pEnd, 10);
+	if (*pEnd != '\0') {
+		errx(1, "Query to select count from the elf_sym table has returned an invalid result: %s", count);
+	}
 	free(count);
 	return result_count;
 }
@@ -422,7 +458,11 @@ int cap_info_for_lib_count(sqlite3 *db, char *lib)
 	asprintf(&query, "SELECT COUNT(*) FROM cap_info WHERE cap_loc_path LIKE \"%%%s%%\";", lib);
         sql_query_exec(db, query, cap_info_count_query_callback, &count);
         
-        int result_count = atoi(count);
+	char *pEnd;
+	long int result_count = strtol(count, &pEnd, 10);
+	if (*pEnd != '\0') {
+		errx(1, "Query to select count from the cap_info table where cap_loc_path like %s has returned an invalid result: %s", lib, count);
+	}
         free(query);
 	free(count);
         return result_count;

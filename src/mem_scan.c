@@ -67,7 +67,12 @@
  */
 void scan_mem(sqlite3 *db, char* arg_pid) 
 {
-	int pid = atoi(arg_pid);
+	char *pEnd;
+	long int pid = strtol(arg_pid, &pEnd, 10);
+
+	if (*pEnd != '\0') {
+		errx(1, "%s is not a valid pid", arg_pid);
+	}
 
 	struct procstat *psp;
 	struct kinfo_proc *kipp;
@@ -79,19 +84,19 @@ void scan_mem(sqlite3 *db, char* arg_pid)
 
 	kipp = procstat_getprocs(psp, KERN_PROC_PID, pid, &pcnt);
 	if (kipp == NULL) {
-		errx(1, "Unable to attach to process with pid %d, does it exist?", pid);
+		errx(1, "Unable to attach to process with pid %ld, does it exist?", pid);
 	}
 	if (pcnt != 1) {
-		errx(1, "procstat did not get expected result from process %d", pid);
+		errx(1, "procstat did not get expected result from process %ld", pid);
 	}
 
 	freep = procstat_getvmmap(psp, kipp, &vmcnt);
 	if (freep == NULL) {
-		errx(1, "Unable to obtain the vm map information from process %d, does cherciat have the right privilege?", pid);
+		errx(1, "Unable to obtain the vm map information from process %ld, does cherciat have the right privilege?", pid);
 	}
 
 	create_vm_cap_db(db);
-	debug_print(TROUBLESHOOT, "Key Stage: Attach process %d using ptrace\n", pid);
+	debug_print(TROUBLESHOOT, "Key Stage: Attach process %ld using ptrace\n", pid);
 
 	char *insert_vm_query_values;
 

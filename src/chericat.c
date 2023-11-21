@@ -31,6 +31,7 @@
  */
 
 #include <ctype.h>
+#include <err.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <getopt.h>
@@ -145,7 +146,14 @@ main(int argc, char *argv[])
 			strcpy(dbname, optarg);
 			break;
 		case 'd':
-			set_print_level(atoi(optarg));
+		{
+			char *pEnd;
+			long int debug_level = strtol(optarg, &pEnd, 10);
+			if (*pEnd != '\0' || debug_level < 0 || debug_level > 3) {
+				errx(1, "Debug level can only be 0, 1, 2 or 3, with 0 being debug off and 3 being the most verbose");
+			}
+			set_print_level(debug_level);
+		}
 			break;
 		default:
 			usage();
