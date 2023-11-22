@@ -113,7 +113,15 @@ main(int argc, char *argv[])
                		 		return (1);
         			}
 			}
-			scan_mem(db, optarg);
+
+			char *pEnd;
+			long int pid = strtol(optarg, &pEnd, 10);
+
+			if (*pEnd != '\0') {
+				errx(1, "%s is not a valid pid", optarg);
+			}
+
+			scan_mem(db, pid);
 			break;
 		case 'v':
 			if (db == NULL) {

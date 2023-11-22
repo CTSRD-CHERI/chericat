@@ -132,13 +132,12 @@ void read_data(int pid, void *addr, void *vptr, int len)
 	}
 }
 
-void read_lwps(char *arg_pid) {
-        char *pEnd;
-        long int pid = strtol(arg_pid, &pEnd, 10);
-
-        if (*pEnd != '\0') {
-                errx(1, "%s is not a valid pid", arg_pid);
-        }
+/* 
+ * read_lwps
+ * Using ptrace to read info of kernel threads
+ */
+void read_lwps(int pid) 
+{
 	ptrace_attach(pid);
 
 	int nlwps;
