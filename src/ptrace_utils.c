@@ -132,9 +132,12 @@ void read_data(int pid, void *addr, void *vptr, int len)
 	}
 }
 
-void read_lwps(char *arg_pid) {
-	int pid = atoi(arg_pid);
-	
+/* 
+ * read_lwps
+ * Using ptrace to read info of kernel threads
+ */
+void read_lwps(int pid) 
+{
 	ptrace_attach(pid);
 
 	int nlwps;

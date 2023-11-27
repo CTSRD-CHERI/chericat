@@ -74,7 +74,7 @@ int db_table_exists(sqlite3 *db, char *tname)
 	rc = sqlite3_prepare_v2(db, check_table_q, -1, &stmt, NULL);
 
 	if (rc != SQLITE_OK) {
-		errx(1, "SQL error: %s\n", sqlite3_errmsg(db));
+		errx(1, "SQL error: %s", sqlite3_errmsg(db));
 	}
 
 	sqlite3_bind_text(stmt, 1, tname, -1, SQLITE_TRANSIENT);
@@ -88,7 +88,7 @@ int db_table_exists(sqlite3 *db, char *tname)
 		debug_print(VERBOSE, "%s does not exist in db %s\n", tname, dbname);
 	} else {
 		sqlite3_finalize(stmt);
-		errx(1, "SQL error: %s\n", sqlite3_errmsg(db));
+		errx(1, "SQL error: %s", sqlite3_errmsg(db));
 	}
 
 	sqlite3_finalize(stmt);
@@ -249,6 +249,23 @@ sym_info *all_sym_info;
 int all_vm_info_index, all_cap_info_index, all_sym_info_index;
 
 /*
+ * convert_str_to_int
+ * A convenient function to check if we can convert the 
+ * provided string to a long integer, and exit the program 
+ * early when an invalid value is detected.
+ */
+static int convert_str_to_int(char *str, char *err_msg)
+{
+	char *pEnd;
+	int int_val = strtol(str, &pEnd, 10);
+	if (*pEnd != '\0') {
+		fprintf(stderr, "DB processing - Expected an integer, got: %s\n", str);
+		errx(1, "%s", err_msg);
+	}
+	return int_val;
+}
+
+/*
  * vm_query_callback
  * SQLite callback routine to traverse results from sqlite_exec()
  * using: "SELECT * FROM vm;"
@@ -267,9 +284,16 @@ static int vm_info_query_callback(void *all_vm_info_ptr, int argc, char **argv, 
         vm_info_captured.start_addr = strdup(argv[0]);
         vm_info_captured.end_addr = strdup(argv[1]);
         vm_info_captured.mmap_path = strdup(argv[2]);
-     	vm_info_captured.kve_protection = atoi(argv[3]);
-     	vm_info_captured.mmap_flags = atoi(argv[4]); 
-        vm_info_captured.vnode_type = atoi(argv[5]);
+
+	// Checking that the received values are valid integers
+	// as expected from the vm_info_captured data structure. 
+	// If the check fails, it means the data is invalid. Without
+	// a more sophisticated logic in place to handle invalid data, 
+	// we will just quit the program and let users to examine 
+	// and fix the data before running this function again.
+	vm_info_captured.kve_protection = convert_str_to_int(argv[3], "kve_protection is invalid");
+     	vm_info_captured.mmap_flags = convert_str_to_int(argv[4], "mmap_flags is invalid"); 
+        vm_info_captured.vnode_type = convert_str_to_int(argv[5], "vnode_type is invalid");
 
 	vm_info_captured.bss_addr = argv[6] == NULL ? NULL : strdup(argv[6]);
         vm_info_captured.bss_size = argv[7] == NULL ? NULL : strdup(argv[7]);
@@ -364,54 +388,39 @@ int vm_info_count(sqlite3 *db)
          * determine the size of the struct array for holding all the vm entries */
         char *count;
         sql_query_exec(db, "SELECT COUNT(*) FROM vm;", vm_info_count_query_callback, &count);
-
-	int result_count = atoi(count);
+	int result_count = convert_str_to_int(count, "Query to get count from vm returned an invalid value");
 	free(count);
 	return result_count;
 }
 
 int cap_info_count(sqlite3 *db)
 {
-	/*
-	if (0 == db_table_exists(db, "cap_info")) {
-		errx(1, "cap_info table does not exist on db %s", dbname);
-	}*/
 	assert_db_table_exists(db, "cap_info");
 
         /* Obtain how many vm items from the database first, we can then use it to
          * determine the size of the struct array for holding all the vm entries */
         char *count;
 	sql_query_exec(db, "SELECT COUNT(*) FROM cap_info;", cap_info_count_query_callback, &count);
-
-        int result_count = atoi(count);
+	int result_count = convert_str_to_int(count, "Query to get count from cap_info returned an invalid value");
 	free(count);
 	return result_count;
 }
 
 int sym_info_count(sqlite3 *db)
 {
-	/*
-	if (0 == db_table_exists(db, "elf_sym")) {
-		errx(1, "elf_sym table does not exist on db %s", dbname);
-	}*/
 	assert_db_table_exists(db, "elf_sym");
 
         /* Obtain how many vm items from the database first, we can then use it to
          * determine the size of the struct array for holding all the vm entries */
         char *count;
 	sql_query_exec(db, "SELECT COUNT(*) FROM elf_sym;", sym_info_count_query_callback, &count);
-
-        int result_count = atoi(count);
+	int result_count = convert_str_to_int(count, "Query to get count from elf_sym returned an invalid value");
 	free(count);
 	return result_count;
 }
 
 int cap_info_for_lib_count(sqlite3 *db, char *lib)
 {      
-        /*	
-	if (0 == db_table_exists(db, "cap_info")) {
-		errx(1, "cap_info table does not exist on db %s", dbname);
-	}*/
 	assert_db_table_exists(db, "cap_info");
 
         /* Obtain how many vm items from the database first, we can then use it to
@@ -421,8 +430,7 @@ int cap_info_for_lib_count(sqlite3 *db, char *lib)
 	char *query;
 	asprintf(&query, "SELECT COUNT(*) FROM cap_info WHERE cap_loc_path LIKE \"%%%s%%\";", lib);
         sql_query_exec(db, query, cap_info_count_query_callback, &count);
-        
-        int result_count = atoi(count);
+	int result_count = convert_str_to_int(count, "Query to get count from cap_info returned an invalid value");
         free(query);
 	free(count);
         return result_count;
@@ -430,10 +438,6 @@ int cap_info_for_lib_count(sqlite3 *db, char *lib)
 
 int get_all_vm_info(sqlite3 *db, vm_info **all_vm_info_ptr)
 {
-	/*
-	if (0 == db_table_exists(db, "vm")) {
-		errx(1, "vm table does not exist on db %s", dbname);
-	}*/
 	assert_db_table_exists(db, "vm");
 
 	int vm_count = vm_info_count(db);
@@ -451,10 +455,6 @@ int get_all_vm_info(sqlite3 *db, vm_info **all_vm_info_ptr)
 
 int get_all_cap_info(sqlite3 *db, cap_info **all_cap_info_ptr)
 {
-	/*
-	if (0 == db_table_exists(db, "cap_info")) {
-		errx(1, "cap_info table does not exist on db %s", dbname);
-	}*/
 	assert_db_table_exists(db, "cap_info");
 
 	int cap_count = cap_info_count(db);
@@ -472,10 +472,6 @@ int get_all_cap_info(sqlite3 *db, cap_info **all_cap_info_ptr)
 
 int get_all_sym_info(sqlite3 *db, sym_info **all_sym_info_ptr)
 {
-	/*
-	if (0 == db_table_exists(db, "elf_sym")) {
-		errx(1, "elf_sym table does not exist on db %s", dbname);
-	}*/
 	assert_db_table_exists(db, "elf_sym");
 
 	int sym_count = sym_info_count(db);
@@ -493,10 +489,6 @@ int get_all_sym_info(sqlite3 *db, sym_info **all_sym_info_ptr)
 
 int get_cap_info_for_lib(sqlite3 *db, cap_info **cap_info_captured_ptr, char *lib)
 {
-	/*
-	if (0 == db_table_exists(db, "cap_info")) {
-		errx(1, "cap_info table does not exist on db %s", dbname);
-	}*/
 	assert_db_table_exists(db, "cap_info");
 
 	int cap_count = cap_info_for_lib_count(db, lib);
