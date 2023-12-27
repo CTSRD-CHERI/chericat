@@ -49,8 +49,9 @@ $(BIN)/caps_syms_view.o: $(SRC)/caps_syms_view.c $(DEPS)/caps_syms_view.h
 
 TEST=./tests
 
-test: $(TEST)/db_process_test.c $(BIN)/common.o
-	$(CC) $(CFLAGS) $(INC) $(LDFLAGS) -DSQLITE_MEMDEBUG -lsqlite3 -o $(TARGET) $(BIN)/common.o $(TEST)/db_process_test.c -o $(BIN)/db_process_test
+test: $(TEST)/db_process_test.c $(BIN)/db_process.o $(BIN)/common.o
+	$(CC) $(CFLAGS) $(INC) $(LDFLAGS) -DSQLITE_MEMDEBUG -lsqlite3 -o $(TARGET) $(BIN)/db_process.o $(BIN)/common.o $(TEST)/db_process_test.c -o $(BIN)/db_process_test
+	$(BIN)/db_process_test; if [ $$? -ne 0 ]; then echo "db_process_test failed"; exit 1; else echo "db_process_test passed"; fi
 
 clean:
 	rm -rf $(BIN)/*.o $(BIN)/chericat
