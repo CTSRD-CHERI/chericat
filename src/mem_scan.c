@@ -221,8 +221,7 @@ void scan_mem(sqlite3 *db, char* arg_pid)
 		ptrace_attach(pid);
 
 		// If the vm block does not allow cap read or write, skip the capability scan
-		if ((kivp->kve_protection & KVME_PROT_READ_CAP) || 
-			(kivp->kve_protection & KVME_PROT_WRITE_CAP)) {
+		if (kivp->kve_flags & KVME_FLAG_HASCAP) { 
 			for (u_long start=kivp->kve_start; start<kivp->kve_end; start+=4096) {
 				get_tags(db, pid, start, mmap_path);
 			}
