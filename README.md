@@ -11,7 +11,7 @@ When the -p option is used, chericat uses the procstat utility functions to take
 
 To display formatted data on the console, the -v or -c options can be used. The -v option shows a table with twelve colunms:
 
-|Column Name|Description|
+|Name|Description|
 |---|---|
 |START|The address of the start of the scanned vm block|
 |END|The address of the end of the scanned vm block|
@@ -22,12 +22,14 @@ To display formatted data on the console, the -v or -c options can be used. The 
 |rwx|Number of read-write-executable enabled capabilities found in this vm block|
 |TOTAL|Total number of capabilities found in this vm block|
 |DENSITY|Percentage of capabilities found |
-|FLAGS|vm flags|
-|TP||
+|FLAGS|Vm mapping flags|
+|TP|Vm object type|
 |PATH|Library name/path where the scanned vm block belongs|
 
 To display the obtained symbols for the capabilities within a specific library, use the -c option:
 
+|Name|Description|
+|---|---|
 |CAP_LOC|Address of the capabilities|
 |CAP_LOC_SYM (TYPE)|Name of the symbol (if found on ELF) for the capability, the type could be NOTYPE if the information is not available, OBJECT if the capability is an object type, or FUNC, if the capability is a function type|
 |CAP_INFO|Referenced address stored in this capability, the permissions, end address of the capability (which in turns shows how big it is)|
