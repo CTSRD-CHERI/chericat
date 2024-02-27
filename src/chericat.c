@@ -31,6 +31,7 @@
  */
 
 #include <ctype.h>
+#include <err.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <getopt.h>
@@ -54,25 +55,25 @@
 
 static void usage()
 {
-	fprintf(stderr, "Usage: chericat [-d <debug level>] [-f <database name>] [-p <pid>] [-v]\n\t[-c <binary name>]\n"
-			"     debug level - 0 = No output; 1 = INFO; 2 = VERBOSE; 3 = TROUBLESHOOT\n"
-			"     pid - pid of the target process for a snapshot of caps info\n"
+	fprintf(stderr, "Usage: chericat [-d] [-f <database name>] [-p <pid>] [-v]\n\t[-c <binary name>]\n"
+			"     pid           - pid of the target process for a snapshot of caps info\n"
 			"     database name - name of the database to store data captured by chericat\n"
+			"     binary name   - name of the binary file for which to show the\n"
+			"                     capabilities located, with corresponding symbols\n"
 			"Options:\n"
-			"     -d Determine the level of debugging messages to be printed. If omitted,\n"
-			"        the default is INFO level\n"
+			"     -d Enable debugging output. Repeated -d's (up to 3) increase verbosity.\n" 
 			"     -f Provide the database name to capture the data collected by chericat.\n"
 			"        If omitted, an in-memory db is used\n"
 			"     -p Scan the mapped memory and persist the caps data to a database\n"
 			"     -v Show virtual summary info of capabilities in the target process,\n"
 			"        arranged in mmap order\n"
 			"     -c Show capabilities with corresponding symbols located in the provided\n"
-			"        binary\n\n");
+			"        binary\n");
 }
 
 static struct option long_options[] = 
 {
-	{"debug_level", required_argument, 0, 'd'},
+	{"debug_level", no_argument, 0, 'd'},
 	{"database_name", required_argument, 0, 'f'},
 	{"scan_mem", required_argument, 0, 'p'},
 	{"caps_summary", no_argument, 0, 'v'},
@@ -88,7 +89,7 @@ main(int argc, char *argv[])
 	argc = xo_parse_args(argc, argv);
 
 	int optindex;
-	int opt = getopt_long(argc, argv, "d:f:p:vc:", long_options, &optindex);
+	int opt = getopt_long(argc, argv, "df:p:vc:", long_options, &optindex);
 
 	if (opt == -1) {
 		usage();
@@ -97,7 +98,8 @@ main(int argc, char *argv[])
 
 	sqlite3 *db = NULL;
 
-	set_print_level(INFO);
+	static int debug_level = 0;
+	set_print_level(debug_level);
 
 	while (opt != -1) {
 		switch (opt)
@@ -112,7 +114,15 @@ main(int argc, char *argv[])
                		 		return (1);
         			}
 			}
-			scan_mem(db, optarg);
+
+			char *pEnd;
+			long int pid = strtol(optarg, &pEnd, 10);
+
+			if (*pEnd != '\0') {
+				errx(1, "%s is not a valid pid", optarg);
+			}
+
+			scan_mem(db, pid);
 			break;
 		case 'v':
 			if (db == NULL) {
@@ -147,13 +157,14 @@ main(int argc, char *argv[])
 			strcpy(dbname, optarg);
 			break;
 		case 'd':
-			set_print_level(atoi(optarg));
+			debug_level++;
+			set_print_level(debug_level);
 			break;
 		default:
 			usage();
 			exit(0);
 		}
-		opt = getopt_long(argc, argv, "d:f:p:vc:", long_options, &optindex);
+		opt = getopt_long(argc, argv, "df:p:vc:", long_options, &optindex);
 	}
 
 	xo_finish();
