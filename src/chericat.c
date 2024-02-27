@@ -55,18 +55,14 @@
 
 static void usage()
 {
-	fprintf(stderr, "Usage: chericat [-d*] [-f <database name>] [-p <pid>] [-v]\n\t[-c <binary name>]\n"
+	fprintf(stderr, "Usage: chericat [-d] [-f <database name>] [-p <pid>] [-v]\n\t[-c <binary name>]\n"
 			"     pid           - pid of the target process for a snapshot of caps info\n"
 			"     database name - name of the database to store data captured by chericat\n"
 			"     binary name   - name of the binary file for which to show the\n"
 			"                     capabilities located, with corresponding symbols\n"
 			"Options:\n"
-			"     -d The number of 'd' provided determines the level of debugging messages\n"
-		        "        to be printed. If omitted, the default is NO_PRINT level, meaning no\n"
-			"        debugging output. If one 'd' (i.e. -d) is provided, the level is set\n"
-			"        to INFO. If two 'd' (i.e. -dd) is provided, the level is set to VERBOSE.\n"
-			"        The most verbose level is three 'd' (i.e. -ddd), which is the\n"
-			"        TROUBLESHOOTING level. Any more 'd' after three will be ignored.\n" 
+			"     -d The number of 'd' (up to three ds) provided determines the level of debugging messages\n"
+		        "        to be printed, the higher the number of ds the more verbose the messages are.\n" 
 			"     -f Provide the database name to capture the data collected by chericat.\n"
 			"        If omitted, an in-memory db is used\n"
 			"     -p Scan the mapped memory and persist the caps data to a database\n"
