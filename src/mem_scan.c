@@ -59,6 +59,7 @@
 #include "db_process.h"
 #include "cap_capture.h"
 #include "elf_utils.h"
+#include "rtld_linkmap_scan.h"
 
 /*              
  * scan_mem
@@ -92,6 +93,8 @@ void scan_mem(sqlite3 *db, int pid)
 	debug_print(TROUBLESHOOT, "Key Stage: Attach process %d using ptrace\n", pid);
 
 	char *insert_vm_query_values;
+
+	struct compart_data_list *scanned_comparts = scan_rtld_linkmap(pid, psp, kipp);
 
 	/* Maintain the list of paths that have already been had their ELF parsed, so that
 	 * we don't duplicate data or scan unnecessarily.
@@ -182,19 +185,40 @@ void scan_mem(sqlite3 *db, int pid)
 			free(new_path);
 		}
 
-		debug_print(INFO, "0x%016lx 0x%016lx %s %d %d %d\n", 
+		//struct compart_data_list *head = (struct compart_data_list*)malloc(sizeof(struct compart_data_list));
+		//memcpy(head, scanned_comparts, sizeof(struct compart_data_list));
+
+		struct compart_data_list *head = scanned_comparts;
+
+		uint16_t compart_id = 0;
+
+		while (head != NULL) {
+			compart_data_t data = head->data;
+			if (strncmp(data.path, mmap_path, strlen(data.path)) == 0) {
+				compart_id = data.id;
+				break;
+			}
+			head = head->next;
+		}
+
+		// TODO: Handle case when no compart_id found
+		//free(head);
+
+		debug_print(INFO, "0x%016lx 0x%016lx %s %d %d %d %d\n", 
                         kivp->kve_start,
                         kivp->kve_end,
                         mmap_path,
+			compart_id,
 			kivp->kve_protection,
 			kivp->kve_flags,
 			kivp->kve_type);
 
 		char *query_value;
-		asprintf(&query_value, "(\"0x%lx\", \"0x%lx\", \"%s\", %d, %d, %d)", 
+		asprintf(&query_value, "(\"0x%lx\", \"0x%lx\", \"%s\", %d, %d, %d, %d)", 
 				kivp->kve_start,
 				kivp->kve_end,
 				mmap_path,
+				compart_id,
 				kivp->kve_protection,
 				kivp->kve_flags,
 				kivp->kve_type);
@@ -217,7 +241,6 @@ void scan_mem(sqlite3 *db, int pid)
 		// Divide the vm block into pages, and iterate each page to find the tags that reference each
 		// address within the same page.
 		ptrace_attach(pid);
-
 		// If the vm block does not allow cap read or write, skip the capability scan
 		if (kivp->kve_flags & KVME_FLAG_HASCAP) { 
 			for (u_long start=kivp->kve_start; start<kivp->kve_end; start+=4096) {
@@ -225,12 +248,12 @@ void scan_mem(sqlite3 *db, int pid)
 			}
 		}
 		ptrace_detach(pid);
-       	}
+	}
 	
 	free(seen_kivp);
 
 	if (insert_vm_query_values != NULL) {
-		char query_hdr[] = "INSERT INTO vm(start_addr, end_addr, mmap_path, kve_protection, mmap_flags, vnode_type) VALUES";
+		char query_hdr[] = "INSERT INTO vm(start_addr, end_addr, mmap_path, compart_id, kve_protection, mmap_flags, vnode_type) VALUES";
 		char *query;
 		asprintf(&query, "%s%s;", query_hdr, insert_vm_query_values);
 	
@@ -264,6 +287,7 @@ void scan_mem(sqlite3 *db, int pid)
 		free(query);
 	}
 
+	free(scanned_comparts);
 	procstat_freevmmap(psp, freep);
 	procstat_freeprocs(psp, kipp);
 	procstat_close(psp);

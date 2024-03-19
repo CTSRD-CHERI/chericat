@@ -87,8 +87,8 @@ void vm_caps_view(sqlite3 *db)
 	}
 
 	int ptrwidth = sizeof(void *);
-	xo_emit("{T:/\n%*s %*s %6s %5s %5s %5s %5s %8s %8s %-5s %-2s %-s}\n",
-		ptrwidth, "START", ptrwidth-1, "END", "PRT", "ro", "rw", "rx", "rwx", "TOTAL", "DENSITY", "FLAGS", "TP", "PATH");
+	xo_emit("{T:/\n%*s %*s %6s %5s %5s %5s %5s %8s %8s %-5s %-2s %5s %-s}\n",
+		ptrwidth, "START", ptrwidth-1, "END", "PRT", "ro", "rw", "rx", "rwx", "TOTAL", "DENSITY", "FLAGS", "TP", "COMPART", "PATH");
 		
 	xo_open_list("vm_cap_output");
 	for (int i=1; i<vm_count; i++) {
@@ -202,6 +202,8 @@ void vm_caps_view(sqlite3 *db)
 		}
 		xo_emit("{:kve_type/%-2s} ", str);	
 			
+		xo_emit("{:compart_id/%7d} ", vm_info_captured[i].compart_id);
+
 		char *filename = (char*)malloc(sizeof(vm_info_captured[i].mmap_path));
 		get_filename_from_path(vm_info_captured[i].mmap_path, &filename);			
 		xo_emit("{:mmap_path/%s}\n", filename);

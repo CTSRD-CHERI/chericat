@@ -36,7 +36,17 @@
 #include <sqlite3.h>
 #define __CHERI_PURE_CAPABILITY__
 
+typedef struct struct_compart_data_t {
+	uint16_t id;
+	char *path;
+} compart_data_t;
+
+struct compart_data_list {
+	compart_data_t data;
+	struct compart_data_list *next;
+};
+
 void getprocs_with_procstat_sysctl(sqlite3 *db, char* arg_pid);
-void scan_rtld_linkmap(int pid, struct procstat *psp, struct kinfo_proc *kipp);
+struct compart_data_list* scan_rtld_linkmap(int pid, struct procstat *psp, struct kinfo_proc *kipp);
 
 #endif //RTLD_LINKMAP_SCAN_H_
