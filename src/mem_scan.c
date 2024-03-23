@@ -61,6 +61,26 @@
 #include "elf_utils.h"
 #include "rtld_linkmap_scan.h"
 
+/* _is_substring_of
+ * an internal routine to check if s1 is a substring of s2
+ */
+int _is_substring_of(char* s1, char* s2)
+{
+	int s1_len = strlen(s1);
+	int s2_len = strlen(s2);
+	for (int i=0; i<=s2_len-s1_len; i++) {
+		int j;
+		for (j=0; j<s1_len; j++) {
+			if (s2[i+j] != s1[j])
+				break;
+		}
+		if (j == s1_len) {
+			return i;
+		}
+	}
+	return -1;
+}
+
 /*              
  * scan_mem
  * When the -s option is used to attach this tool to a running process.
@@ -196,6 +216,18 @@ void scan_mem(sqlite3 *db, int pid)
 			compart_data_t data = head->data;
 			if (strncmp(data.path, mmap_path, strlen(data.path)) == 0) {
 				compart_id = data.id;
+				break;
+			}
+			if (strncmp("Stack", mmap_path, strlen("Stack")) == 0) {
+				compart_id = -2;
+				break;
+			}
+			// Given that the rtld itself is not assigned a compartment, it is 
+			// assigned a special value of -2 so that it can be used to separate
+			// from the unknowns, which are given a compart_id of -1.
+			int is_substring = _is_substring_of("ld-elf", mmap_path);
+			if (is_substring != -1) {
+				compart_id = -3;
 				break;
 			}
 			head = head->next;

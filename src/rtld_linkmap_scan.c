@@ -269,7 +269,7 @@ struct compart_data_list* scan_rtld_linkmap(int pid, struct procstat *psp, struc
 		debug_print(DEBUG, "entry: %p path: %s compart_id:%d\n", entry, path, compart_id);
 	
 		compart_data_t data;
-		data.path =path;
+		data.path = path;
 		data.id = compart_id;
 
 		struct compart_data_list *comparts;
