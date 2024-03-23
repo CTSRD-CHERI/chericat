@@ -190,7 +190,7 @@ void scan_mem(sqlite3 *db, int pid)
 
 		struct compart_data_list *head = scanned_comparts;
 
-		uint16_t compart_id = 0;
+		int compart_id = -1;
 
 		while (head != NULL) {
 			compart_data_t data = head->data;

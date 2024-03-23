@@ -37,7 +37,7 @@
 #define __CHERI_PURE_CAPABILITY__
 
 typedef struct struct_compart_data_t {
-	uint16_t id;
+	int id;
 	char *path;
 } compart_data_t;
 

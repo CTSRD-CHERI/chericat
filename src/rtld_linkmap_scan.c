@@ -254,7 +254,7 @@ struct compart_data_list* scan_rtld_linkmap(int pid, struct procstat *psp, struc
 
 		int retno = ptrace(PT_IO, pid, (caddr_t)&name_piod, 0);
 	
-		uint16_t compart_id = entry.compart_id;
+		int compart_id = entry.compart_id;
 		
 		// Ready to move to the next link_map
 		Obj_Entry *next_entry = entry.linkmap.l_next;
