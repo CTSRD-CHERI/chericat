@@ -33,10 +33,12 @@
 
 import graphviz
 import sys, os, argparse
+import time
 
 import db_utils
 import full_graph
 import cap_graph
+import comparts_graph
 
 parser = argparse.ArgumentParser(prog='chericat_graphs')
 parser.add_argument(
@@ -63,6 +65,12 @@ parser.add_argument(
 	nargs=2,
 )
 
+parser.add_argument(
+    '-l',
+    help="Show compartments graph",
+    action='store_true',
+)
+
 args = parser.parse_args()
 
 if args.d:
@@ -81,3 +89,11 @@ if args.c:
 	cap_graph.show_caps_between_two_libs(db, args.c[0], args.c[1], digraph)
 	digraph.render(directory='graph-output', view=True)
 
+if args.l:
+    start = time.perf_counter()
+    digraph = graphviz.Digraph('G', filename='comparts_graph.gv')
+    comparts_graph.show_comparts(db, digraph)
+    end = time.perf_counter()
+    print("Comparts graph generation time taken: " + str(end-start) + "s")
+
+    digraph.render(directory='graph-output', view=True)

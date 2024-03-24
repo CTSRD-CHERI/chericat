@@ -52,7 +52,7 @@ def show_caps_to_bin(db, path, graph):
     nodes = []
     edges = []
     
-    nodes.append(gv_utils.gen_node(path, path, "lightblue"))
+    nodes.append(gv_utils.gen_node(path, path, "lightblue", "same"))
     
     for cap in caps:
         cap_loc_addr = cap[0] 
@@ -64,7 +64,7 @@ def show_caps_to_bin(db, path, graph):
         
         if path in cap_path:
             node_label = cap_addr
-            cap_node = gv_utils.gen_node(cap_addr, cap_addr +"|"+cap_perms+"|"+cap_base+"-"+cap_top, "pink")
+            cap_node = gv_utils.gen_node(cap_addr, cap_addr +"|"+cap_perms+"|"+cap_base+"-"+cap_top, "pink", "same")
             nodes.append(cap_node)
 
     gv_utils.gen_records(graph, nodes, edges)
