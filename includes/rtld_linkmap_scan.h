@@ -1,12 +1,11 @@
 /*-
  * SPDX-License-Identifier: BSD-2-Clause
  *
- * Copyright (c) 2023 Jessica Man 
+ * Copyright (c) 2023 Capabilities Limited
  *
- * This software was developed by the University of Cambridge Computer
- * Laboratory (Department of Computer Science and Technology) as part of the
- * CHERI for Hypervisors and Operating Systems (CHaOS) project, funded by
- * EPSRC grant EP/V000292/1.
+ * This software was developed by Capabilities Limited under Innovate UK
+ * project 10027440, "Developing and Evaluating an Open-Source Desktop for Arm
+ * Morello".
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
