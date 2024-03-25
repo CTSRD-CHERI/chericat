@@ -50,7 +50,7 @@ The output is placed in the graph-output directory, the dot output file is calle
 The nodes on the graph represent the libraries (and special regions), for example:
 
 <p align="center">
-<img src="digraph_nodes.jpg" alt="digraph_nodes" width="150"/>
+<img src="directed_libraries_graph.png" alt="digraph_nodes" width="150"/>
 </p>
 
 and each edge represent capabilities. The direction shows the capabilities located in a library memory region has a pointer address pointing to the libraries where they are directed by the edge arrows.
@@ -67,7 +67,7 @@ $ python3.9 chericat_graphs.py -d <db> -c <lib1> <lib2>
 The output is places in the graph-output directory, the dot output file is named <lib1>_vs_<lib2>.gv and the graph output is generated into pdf format named <lib1>_vs_<lib2>.gv.pdf.
 
 <p align="center">
-<img src="digraph_nodes.jpg" alt="digraph_nodes" width="150"/>
+<img src="caps_between_two_lib.png" alt="cap_two_libs" width="150"/>
 </p>
 
 ## Capabilities Relationship Between All Compartments
@@ -82,6 +82,6 @@ The nodes on the graph represent the compartments, each node is labelled using t
 The edges represent capabilities. Similar to the -g option above, the direction of the edge shows the reference direction of the capability between the two compartments, and the thickness shows the quantity, the thicker the edge is, the more capabilities were found between the two connected compartments.
 
 <p align="center">
-<img src="digraph_nodes.jpg" alt="digraph_nodes" width="150"/>
+<img src="comparts_sample.png" alt="comparts_sample" width="150"/>
 </p>
 
