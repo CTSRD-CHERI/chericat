@@ -225,8 +225,13 @@ void scan_mem(sqlite3 *db, int pid)
 			// from the unknowns, which are given a compart_id of -1.
 			int is_substring = _is_substring_of("ld-elf", mmap_path);
 			if (is_substring != -1) {
-				compart_id = -3;
+				compart_id = -2;
 				break;
+			}
+			// Guard pages have no compartmentalisational value in chericat, hence 
+			// separating them by assigning it a special value of -3.
+			if (strcmp("Guard", mmap_path) == 0) {
+				compart_id = -3;
 			}
 			head = head->next;
 		}
@@ -257,6 +262,7 @@ void scan_mem(sqlite3 *db, int pid)
 			debug_print(INFO, "stack_compart_data: %p piod_offs: %p piod_len: %zu\n", stack_compart_data, piod.piod_offs, piod.piod_len);
 
 			compart_id = stack_compart_data.compart_id;
+			
 			ptrace_detach(pid);
 		}
 
@@ -296,7 +302,7 @@ void scan_mem(sqlite3 *db, int pid)
 		}
 		free(query_value);
 		
-		// Divide the vm block into pages, and iterate each page to find the tags that reference each
+		// Divide the vm block into 4k pages, and iterate each page to find the tags that reference each
 		// address within the same page.
 		ptrace_attach(pid);
 		// If the vm block does not allow cap read or write, skip the capability scan
