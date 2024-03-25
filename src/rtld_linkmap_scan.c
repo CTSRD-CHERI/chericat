@@ -121,7 +121,7 @@ struct compart_data_list* scan_rtld_linkmap(int pid, struct procstat *psp, struc
 		}
 	}
 	assert(phent == sizeof(Elf_Phdr));
-        debug_print(DEBUG, "phdr: %p phent: %d phnum: %d\n", phdr, phent, phnum);
+        debug_print(INFO, "phdr: %p phent: %d phnum: %d\n", phdr, phent, phnum);
 
 	// ***** PHDR --> PT_DYNAMIC ***** //
 	// Using the PHDR address, read the program header entries of the target
@@ -144,7 +144,7 @@ struct compart_data_list* scan_rtld_linkmap(int pid, struct procstat *psp, struc
 	if (piod.piod_len != phent*phnum) {
 		err(1, "ptrace(PT_IO) short read: %zu vs %d", piod.piod_len, phent*phnum);
 	}
-	debug_print(DEBUG, "target_phdr: %p piod_offs: %p piod_len: %zu\n", target_phdr, piod.piod_offs, piod.piod_len);
+	debug_print(INFO, "target_phdr: %p piod_offs: %p piod_len: %zu\n", target_phdr, piod.piod_offs, piod.piod_len);
 	
 	// Scan the program header entries from read memory to find the PT_DYNAMIC section
 	void *dyn = malloc(sizeof(void*));
@@ -154,7 +154,7 @@ struct compart_data_list* scan_rtld_linkmap(int pid, struct procstat *psp, struc
 		if (target_phdr[i].p_type == PT_DYNAMIC) {
 			dyn = (void *)target_phdr[i].p_vaddr;
 			dyn_size = target_phdr[i].p_memsz;
-			debug_print(DEBUG, "Found it: %p\n", dyn);
+			debug_print(INFO, "Found it: %p\n", dyn);
 			break;
 		}
 	}
@@ -182,14 +182,14 @@ struct compart_data_list* scan_rtld_linkmap(int pid, struct procstat *psp, struc
 	if (dyn_piod.piod_len != dyn_size) {
 		err(1, "ptrace(PT_IO) short read: %zu vs %d", dyn_piod.piod_len, dyn_size);
 	}
-	debug_print(DEBUG, "target_dyn: %p piod_offs: %p dyn_size: %d piod_len: %zu\n", target_dyn, dyn_piod.piod_offs, dyn_size, dyn_piod.piod_len);
+	debug_print(INFO, "target_dyn: %p piod_offs: %p dyn_size: %d piod_len: %zu\n", target_dyn, dyn_piod.piod_offs, dyn_size, dyn_piod.piod_len);
 	
 	void *debug = malloc(sizeof(void*));
 
 	for (int i=0; i<dyn_size; i++) {
 		if (target_dyn[i].d_tag == DT_DEBUG) {
 			debug = target_dyn[i].d_un.d_ptr;
-			debug_print(DEBUG, "Found it!! %lu\n", target_dyn[i].d_un.d_ptr);
+			debug_print(INFO, "Found it!! %lu\n", target_dyn[i].d_un.d_ptr);
 			break;
 		}
 	}
@@ -217,7 +217,7 @@ struct compart_data_list* scan_rtld_linkmap(int pid, struct procstat *psp, struc
 	if (debug_piod.piod_len != sizeof(struct r_debug)) {
 		err(1, "ptrace(PT_IO) short read: %zu vs %lu", debug_piod.piod_len, sizeof(struct r_debug));
 	}
-	debug_print(DEBUG, "target_debug: %p piod_offs: %p piod_len: %zu\n", target_debug, debug_piod.piod_offs, debug_piod.piod_len);
+	debug_print(INFO, "target_debug: %p piod_offs: %p piod_len: %zu\n", target_debug, debug_piod.piod_offs, debug_piod.piod_len);
 
 	struct link_map *r_map = target_debug.r_map;
 
@@ -234,7 +234,7 @@ struct compart_data_list* scan_rtld_linkmap(int pid, struct procstat *psp, struc
 		err(1, "ptrace(PT_IO) failed to scan process %d at %p", pid, debug_piod.piod_offs);
 	}
 
-	debug_print(DEBUG, "target_obj_entry: %p piod_offs: %p piod_len: %zu\n", target_obj_entry, r_map_piod.piod_offs, r_map_piod.piod_len);
+	debug_print(INFO, "target_obj_entry: %p piod_offs: %p piod_len: %zu\n", target_obj_entry, r_map_piod.piod_offs, r_map_piod.piod_len);
 
 	// target_link_map is a linked list, we need to traverse the entries by following l_next and look up the 
 	// Obj_Entry data in the target process for each l_addr
@@ -266,7 +266,7 @@ struct compart_data_list* scan_rtld_linkmap(int pid, struct procstat *psp, struc
 
 		retno = ptrace(PT_IO, pid, (caddr_t)&next_piod, 0);
 		
-		debug_print(DEBUG, "entry: %p path: %s compart_id:%d\n", entry, path, compart_id);
+		debug_print(INFO, "entry: %p path: %s compart_id:%d\n", entry, path, compart_id);
 	
 		compart_data_t data;
 		data.path = path;
