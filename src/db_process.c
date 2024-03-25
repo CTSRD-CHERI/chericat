@@ -119,8 +119,8 @@ int create_vm_cap_db(sqlite3 *db)
 		"kve_protection INTEGER NOT NULL, "
 		"mmap_flags INTEGER NOT NULL, "
 		"vnode_type INTEGER NOT NULL, "
-		"bss_addr VARCHAR, "
-		"bss_size VARCHAR, "
+		//"bss_addr VARCHAR, "
+		//"bss_size VARCHAR, "
 		"plt_addr VARCHAR, "
 		"plt_size VARCHAR, "
 		"got_addr VARCHAR, "
@@ -278,8 +278,8 @@ static int convert_str_to_int(char *str, char *err_msg)
  */
 static int vm_info_query_callback(void *all_vm_info_ptr, int argc, char **argv, char **azColName)
 {
-        /* Database schema for vm has 13 columns */
-        assert(argc == 13);
+        /* Database schema for vm has 11 columns */
+        assert(argc == 11);
  
         vm_info vm_info_captured;
         vm_info_captured.start_addr = strdup(argv[0]);
@@ -297,12 +297,12 @@ static int vm_info_query_callback(void *all_vm_info_ptr, int argc, char **argv, 
      	vm_info_captured.mmap_flags = convert_str_to_int(argv[5], "mmap_flags is invalid"); 
         vm_info_captured.vnode_type = convert_str_to_int(argv[6], "vnode_type is invalid");
 
-	vm_info_captured.bss_addr = argv[7] == NULL ? NULL : strdup(argv[7]);
-        vm_info_captured.bss_size = argv[8] == NULL ? NULL : strdup(argv[8]);
-        vm_info_captured.plt_addr = argv[9] == NULL ? NULL : strdup(argv[9]);
-        vm_info_captured.plt_size = argv[10] == NULL ? NULL : strdup(argv[10]);
-        vm_info_captured.got_addr = argv[11] == NULL ? NULL : strdup(argv[11]);
-        vm_info_captured.got_size = argv[12] == NULL ? NULL : strdup(argv[12]);
+	//vm_info_captured.bss_addr = argv[7] == NULL ? NULL : strdup(argv[7]);
+        //vm_info_captured.bss_size = argv[8] == NULL ? NULL : strdup(argv[8]);
+        vm_info_captured.plt_addr = argv[7] == NULL ? NULL : strdup(argv[7]);
+        vm_info_captured.plt_size = argv[8] == NULL ? NULL : strdup(argv[8]);
+        vm_info_captured.got_addr = argv[9] == NULL ? NULL : strdup(argv[9]);
+        vm_info_captured.got_size = argv[10] == NULL ? NULL : strdup(argv[10]);
 
 	vm_info **result_ptr = (vm_info **)all_vm_info_ptr;
        	(*result_ptr)[all_vm_info_index++] = vm_info_captured;

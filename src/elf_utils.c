@@ -187,11 +187,13 @@ void get_elf_info(sqlite3 *db, Elf *elfFile, char *source, u_long source_base, s
 		}
 
 		special_sections ssect_captured;
+		/*
 		if (strcmp(section_name, ".bss") == 0) {
 			ssect_captured.bss_addr = shdr.sh_addr+source_base;
 			ssect_captured.bss_size = shdr.sh_size;
 
 		}
+		*/
                 if (strcmp(section_name, ".plt") == 0) {
                         ssect_captured.plt_addr = shdr.sh_addr+source_base;
 			ssect_captured.plt_size = shdr.sh_size;

@@ -184,6 +184,7 @@ void scan_mem(sqlite3 *db, int pid)
 		}
 
 		// TODO: Will make these into a neater routine!
+		/*
 		if (kivp->kve_start <= ssect[ssect_index-1].bss_addr &&
 			kivp->kve_end >= ssect[ssect_index-1].bss_addr+ssect[ssect_index-1].bss_size) {
 			char *new_path;
@@ -191,6 +192,7 @@ void scan_mem(sqlite3 *db, int pid)
 			mmap_path = strdup(new_path);
 			free(new_path);
 		}
+		*/
 		if (kivp->kve_start <= ssect[ssect_index-1].plt_addr &&
 			kivp->kve_end >= ssect[ssect_index-1].plt_addr+ssect[ssect_index-1].plt_size) {
 			char *new_path;
@@ -324,15 +326,15 @@ void scan_mem(sqlite3 *db, int pid)
 		char *query;
 		asprintf(&query,	
 			"UPDATE vm SET "
-			"bss_addr=\"0x%lx\", "
-			"bss_size=\"0x%lx\", "
+			//"bss_addr=\"0x%lx\", "
+			//"bss_size=\"0x%lx\", "
 			"plt_addr=\"0x%lx\", "
 			"plt_size=\"0x%lx\", "
 			"got_addr=\"0x%lx\", "
 			"got_size=\"0x%lx\" " 
 			"WHERE mmap_path=\"%s\";",
-			ssect[i].bss_addr, 
-			ssect[i].bss_size, 
+			//ssect[i].bss_addr, 
+			//ssect[i].bss_size, 
 			ssect[i].plt_addr, 
 			ssect[i].plt_size,
 			ssect[i].got_addr, 
