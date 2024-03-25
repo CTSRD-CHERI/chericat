@@ -5,7 +5,6 @@ DEPS=./includes
 CC?=cc
 CFLAGS+=-g -O0
 CFLAGS+=-Wall -Wcheri
-CFLAGS+=-Wl,--dynamic-linker=/libexec/ld-elf-c18n.so.1
 
 INC=-I/usr/include -I/usr/local/include -I$(DEPS) -I/usr/src/libexec/rtld-elf -I/usr/src/libexec/rtld-elf/aarch64
 LDFLAGS=-L/usr/lib -L/usr/local/lib 

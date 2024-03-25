@@ -35,6 +35,22 @@
 
 #include <sqlite3.h>
 
+typedef uint16_t compart_id_t;
+
+struct stk_bottom {
+	compart_id_t compart_id;
+	/*
+	 * Store an integer address of the compartment's name for debuggers.
+	 */
+	ptraddr_t compart_name;
+	/*
+	 * INVARIANT: The bottom of a compartment's stack contains a capability
+	 * to the top of the stack either when the compartment was last entered
+	 * or when it was last exited from, which ever occured later.
+	 */
+	void *top;
+};
+
 void scan_mem(sqlite3 *db, int pid);
 
 #endif //MEM_SCAN_H_

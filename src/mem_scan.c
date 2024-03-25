@@ -54,6 +54,7 @@
 
 #include <cheri/cheric.h>
 
+#include "mem_scan.h"
 #include "common.h"
 #include "ptrace_utils.h"
 #include "db_process.h"
@@ -204,7 +205,6 @@ void scan_mem(sqlite3 *db, int pid)
 			mmap_path = strdup(new_path);
 			free(new_path);
 		}
-
 		//struct compart_data_list *head = (struct compart_data_list*)malloc(sizeof(struct compart_data_list));
 		//memcpy(head, scanned_comparts, sizeof(struct compart_data_list));
 
@@ -218,10 +218,6 @@ void scan_mem(sqlite3 *db, int pid)
 				compart_id = data.id;
 				break;
 			}
-			if (strncmp("Stack", mmap_path, strlen("Stack")) == 0) {
-				compart_id = -2;
-				break;
-			}
 			// Given that the rtld itself is not assigned a compartment, it is 
 			// assigned a special value of -2 so that it can be used to separate
 			// from the unknowns, which are given a compart_id of -1.
@@ -233,7 +229,35 @@ void scan_mem(sqlite3 *db, int pid)
 			head = head->next;
 		}
 
-		// TODO: Handle case when no compart_id found
+		if (strcmp("Stack", mmap_path) == 0) {
+			// At the bottom of the stack, i.e. the top limit bound of the stack capability
+			// the offset -32 bytes are the struct stk_bottom data, which contains the 
+			// compart_id for the stack
+			// Therefore we need to use ptrace to scan for the address (kve_end - 0x20) 
+			// in order to obtain the struct stk_bottom data
+			ptrace_attach(pid);
+
+			struct ptrace_io_desc piod;
+			//struct stk_bottom stack_compart_data = calloc(sizeof(struct stk_bottom), 1);
+			struct stk_bottom stack_compart_data;
+			piod.piod_op = PIOD_READ_D;
+			piod.piod_addr = &stack_compart_data;
+			piod.piod_offs = (void*)kivp->kve_end - 0x20;
+			piod.piod_len = sizeof(struct stk_bottom);
+
+			int retno = ptrace(PT_IO, pid, (caddr_t)&piod, 0);
+			if (retno == -1) {
+				err(1, "ptrace(PT_IO) failed to scan process %d at %p", pid, piod.piod_offs);
+			}
+			if (piod.piod_len != sizeof(struct stk_bottom)) {
+					err(1, "ptrace(PT_IO) short read: %d vs %zu", pid, sizeof(struct stk_bottom));
+			}
+			debug_print(INFO, "stack_compart_data: %p piod_offs: %p piod_len: %zu\n", stack_compart_data, piod.piod_offs, piod.piod_len);
+
+			compart_id = stack_compart_data.compart_id;
+			ptrace_detach(pid);
+		}
+
 		//free(head);
 
 		debug_print(INFO, "0x%016lx 0x%016lx %s %d %d %d %d\n", 
