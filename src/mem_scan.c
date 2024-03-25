@@ -122,7 +122,7 @@ void scan_mem(sqlite3 *db, int pid)
 	 * Choosing 50 as the max number for now, ideally it should be able to grow with the 
 	 * number of paths identified.
 	 */
-	struct kinfo_vmentry *seen_kivp = calloc(50, sizeof(struct kinfo_vmentry));
+	struct kinfo_vmentry *seen_kivp = calloc(200, sizeof(struct kinfo_vmentry));
 	special_sections *ssect = (special_sections *)calloc(vmcnt, sizeof(special_sections));
 	assert(ssect != NULL);
 	int ssect_index = 0;
