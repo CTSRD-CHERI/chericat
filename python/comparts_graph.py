@@ -32,6 +32,7 @@
 import json
 import math
 import sqlite3
+import os
 
 import db_utils
 import gv_utils
@@ -116,3 +117,72 @@ def show_comparts(db, graph):
 
     gv_utils.gen_records(graph, nodes, edges)
 
+def show_comparts_has_caps(db, graph):
+    get_compart_id_q = "SELECT distinct compart_id, mmap_path FROM vm"
+    compart_ids = db_utils.run_sql_query(db, get_compart_id_q) # returns an array of arrays, each with 2 elements: compart_id and mmap_path
+    get_caps_q = "SELECT * FROM cap_info"
+    caps = db_utils.run_sql_query(db, get_caps_q)
+    
+    nodes = []
+    edges = []
+
+    for results in compart_ids:
+        compart_id = results[0]
+        mmap_path = os.path.basename(results[1])
+
+        print(str(compart_id) + ":" + mmap_path)
+
+        if (compart_id < 0):
+            fillcolor = "lightgrey"
+            rank = "source"
+        else:
+            fillcolor = "lightblue"
+            rank = "max"
+            
+        nodes.append(gv_utils.gen_node(
+                        str(compart_id), 
+                        str(compart_id)+": "+mmap_path, 
+                        fillcolor,
+                        rank))
+
+        lib_start_q = "SELECT start_addr FROM vm WHERE mmap_path LIKE '%" + mmap_path + "%'"
+        lib_end_q = "SELECT end_addr FROM vm WHERE mmap_path LIKE '%" + mmap_path + "%'"
+        lib_start_addrs = db_utils.run_sql_query(db, lib_start_q)
+        lib_end_addrs = db_utils.run_sql_query(db, lib_end_q)    
+
+        for cap in caps:
+            cap_loc_addr = cap[0]
+            cap_path = cap[1]
+            cap_addr = cap[2]
+            cap_perms = cap[3]
+            cap_base = cap[4]
+            cap_top = cap[5]
+ 
+            for lib_addr_index in range(len(lib_start_addrs)):
+                lib_start_addr = lib_start_addrs[lib_addr_index][0]
+                lib_end_addr = lib_end_addrs[lib_addr_index][0]      
+
+                # Also remove the appended (.got/.plt) and compare
+                if cap_addr >= lib_start_addr and \
+                    cap_addr <= lib_end_addr and \
+                    cap_path != mmap_path and \
+                    cap_path != mmap_path[:-6] and \
+                    cap_path[:-6] != mmap_path and \
+                    cap_path[:-6] != mmap_path[:-6]:
+
+                    find_compart_id_q = "SELECT DISTINCT compart_id FROM vm WHERE mmap_path LIKE '%" + cap_path + "%'"
+                    cap_path_compart_id_json = db_utils.run_sql_query(db, find_compart_id_q)
+                    # only need the first compart_id as they should be all the same 
+                    cap_compart_id = cap_path_compart_id_json[0][0]
+#                   print("cap_path_label: " + str(cap_compart_id) + " single_compart_id: " + str(single_compart_id) + " compart path: " + path)
+               
+                    for props in edges:
+                        if props.get("src") == str(cap_compart_id) and props.get("dest") == str(compart_id):
+                            # penwidth_weight = math.log((10**(float(props.get("penwidth"))) + 1), 10)
+                            edges.remove(props)
+                            break
+                    if (str(cap_compart_id) != str(compart_id)):
+                        #edges.append({"src":str(cap_compart_id), "dest":str(compart_id), "label":"", "penwidth":1})
+                        edges.append({"src":str(cap_compart_id), "dest":str(compart_id), "label":""})
+        
+    gv_utils.gen_records(graph, nodes, edges)

@@ -1,5 +1,6 @@
 bin/
 *.db
+*.sql
 *.elf
 *.core
 tests/test
