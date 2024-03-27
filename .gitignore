@@ -2,9 +2,11 @@ bin/
 *.db
 *.elf
 *.core
+.DS_Store
 tests/test
 python/__pycache__
 python/graph-output
 python/.ipynb_checkpoints
+jupyter_notebook/.DS_Store
 jupyter_notebook/graph-output
 jupyter_notebook/.ipynb_checkpoints
