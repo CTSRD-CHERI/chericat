@@ -6,7 +6,8 @@ CC?=cc
 CFLAGS+=-g -O0
 CFLAGS+=-Wall -Wcheri
 
-INC=-I/usr/include -I/usr/local/include -I$(DEPS) -I/usr/src/libexec/rtld-elf -I/usr/src/libexec/rtld-elf/aarch64
+SRC_BASE?=/usr/src
+INC=-I/usr/include -I/usr/local/include -I$(DEPS) -I${SRC_BASE}/libexec/rtld-elf -I${SRC_BASE}/libexec/rtld-elf/${ARCH}
 LDFLAGS=-L/usr/lib -L/usr/local/lib 
 
 .PHONY: all
