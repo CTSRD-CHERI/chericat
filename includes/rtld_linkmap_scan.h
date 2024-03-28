@@ -1,12 +1,11 @@
 /*-
  * SPDX-License-Identifier: BSD-2-Clause
  *
- * Copyright (c) 2023 Jessica Man 
+ * Copyright (c) 2023 Capabilities Limited
  *
- * This software was developed by the University of Cambridge Computer
- * Laboratory (Department of Computer Science and Technology) as part of the
- * CHERI for Hypervisors and Operating Systems (CHaOS) project, funded by
- * EPSRC grant EP/V000292/1.
+ * This software was developed by Capabilities Limited under Innovate UK
+ * project 10027440, "Developing and Evaluating an Open-Source Desktop for Arm
+ * Morello".
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,27 +29,23 @@
  * SUCH DAMAGE.
  */
 
-#ifndef MEM_SCAN_H_
-#define MEM_SCAN_H_
+#ifndef RTLD_LINKMAP_SCAN_H_
+#define RTLD_LINKMAP_SCAN_H_
 
 #include <sqlite3.h>
+#define __CHERI_PURE_CAPABILITY__
 
-typedef uint16_t compart_id_t;
+typedef struct struct_compart_data_t {
+	int id;
+	char *path;
+} compart_data_t;
 
-struct stk_bottom {
-	compart_id_t compart_id;
-	/*
-	 * Store an integer address of the compartment's name for debuggers.
-	 */
-	ptraddr_t compart_name;
-	/*
-	 * INVARIANT: The bottom of a compartment's stack contains a capability
-	 * to the top of the stack either when the compartment was last entered
-	 * or when it was last exited from, which ever occured later.
-	 */
-	void *top;
+struct compart_data_list {
+	compart_data_t data;
+	struct compart_data_list *next;
 };
 
-void scan_mem(sqlite3 *db, int pid);
+void getprocs_with_procstat_sysctl(sqlite3 *db, char* arg_pid);
+struct compart_data_list* scan_rtld_linkmap(int pid, struct procstat *psp, struct kinfo_proc *kipp);
 
-#endif //MEM_SCAN_H_
+#endif //RTLD_LINKMAP_SCAN_H_

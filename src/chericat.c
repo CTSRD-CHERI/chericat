@@ -47,6 +47,7 @@
 #include "ptrace_utils.h"
 #include "vm_caps_view.h"
 #include "caps_syms_view.h"
+#include "rtld_linkmap_scan.h"
 
 /*
  * usage()
@@ -55,7 +56,7 @@
 
 static void usage()
 {
-	fprintf(stderr, "Usage: chericat [-d] [-f <database name>] [-p <pid>] [-v]\n\t[-c <binary name>]\n"
+	fprintf(stderr, "Usage: chericat [-d] [-f <database name>] [-p <pid>] [-v]\n\t[-l <pid>] [-c <binary name>]\n"
 			"     pid           - pid of the target process for a snapshot of caps info\n"
 			"     database name - name of the database to store data captured by chericat\n"
 			"     binary name   - name of the binary file for which to show the\n"
@@ -67,6 +68,7 @@ static void usage()
 			"     -p Scan the mapped memory and persist the caps data to a database\n"
 			"     -v Show virtual summary info of capabilities in the target process,\n"
 			"        arranged in mmap order\n"
+			"     -l Scan RTLD linkmap for compartmentalisation information in the target process\n"
 			"     -c Show capabilities with corresponding symbols located in the provided\n"
 			"        binary\n");
 }
@@ -77,6 +79,7 @@ static struct option long_options[] =
 	{"database_name", required_argument, 0, 'f'},
 	{"scan_mem", required_argument, 0, 'p'},
 	{"caps_summary", no_argument, 0, 'v'},
+	{"rtld_linkmap_scan", required_argument, 0, 'l'},
 	{"caps_symbols_summary", required_argument, 0, 'c'},
 	{0,0,0,0}
 };
@@ -89,7 +92,7 @@ main(int argc, char *argv[])
 	argc = xo_parse_args(argc, argv);
 
 	int optindex;
-	int opt = getopt_long(argc, argv, "df:p:vc:", long_options, &optindex);
+	int opt = getopt_long(argc, argv, "df:p:vl:c:", long_options, &optindex);
 
 	if (opt == -1) {
 		usage();
@@ -152,6 +155,8 @@ main(int argc, char *argv[])
 			caps_syms_view(db, optarg);
 			xo_close_container("cap_view");
 			break;
+		case 'l':
+			getprocs_with_procstat_sysctl(db, optarg);
 		case 'f':
 			dbname = (char*)malloc(strlen(optarg)+1);
 			strcpy(dbname, optarg);
@@ -164,7 +169,7 @@ main(int argc, char *argv[])
 			usage();
 			exit(0);
 		}
-		opt = getopt_long(argc, argv, "df:p:vc:", long_options, &optindex);
+		opt = getopt_long(argc, argv, "df:p:vl:c:", long_options, &optindex);
 	}
 
 	xo_finish();

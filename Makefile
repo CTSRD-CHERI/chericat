@@ -3,10 +3,11 @@ SRC=./src
 DEPS=./includes
 
 CC?=cc
-CFLAGS?=-g -O0
+CFLAGS+=-g -O0
 CFLAGS+=-Wall -Wcheri
 
-INC=-I/usr/include -I/usr/local/include -I$(DEPS)
+SRC_BASE?=/usr/src
+INC=-I/usr/include -I/usr/local/include -I$(DEPS) -I${SRC_BASE}/libexec/rtld-elf -I${SRC_BASE}/libexec/rtld-elf/${ARCH}
 LDFLAGS=-L/usr/lib -L/usr/local/lib 
 
 .PHONY: all
@@ -21,8 +22,8 @@ make_dir: $(BIN)/
 $(BIN)/:
 	mkdir -p $@
 
-$(TARGET): $(SRC)/chericat.c $(BIN)/common.o $(BIN)/mem_scan.o $(BIN)/db_process.o $(BIN)/cap_capture.o $(BIN)/elf_utils.o $(BIN)/ptrace_utils.o $(BIN)/vm_caps_view.o $(BIN)/caps_syms_view.o
-	$(CC) $(CFLAGS) $(INC) $(LDFLAGS) -DSQLITE_MEMDEBUG -lelf -lprocstat -lsqlite3 -lxo -o $(TARGET) $(BIN)/common.o $(BIN)/mem_scan.o $(BIN)/elf_utils.o $(BIN)/ptrace_utils.o $(BIN)/cap_capture.o $(BIN)/db_process.o $(BIN)/vm_caps_view.o $(BIN)/caps_syms_view.o $(SRC)/chericat.c
+$(TARGET): $(SRC)/chericat.c $(BIN)/common.o $(BIN)/mem_scan.o $(BIN)/db_process.o $(BIN)/cap_capture.o $(BIN)/elf_utils.o $(BIN)/ptrace_utils.o $(BIN)/vm_caps_view.o $(BIN)/caps_syms_view.o $(BIN)/rtld_linkmap_scan.o
+	$(CC) $(CFLAGS) $(INC) $(LDFLAGS) -DSQLITE_MEMDEBUG -lelf -lprocstat -lsqlite3 -lxo -o $(TARGET) $(BIN)/common.o $(BIN)/mem_scan.o $(BIN)/elf_utils.o $(BIN)/ptrace_utils.o $(BIN)/cap_capture.o $(BIN)/db_process.o $(BIN)/vm_caps_view.o $(BIN)/caps_syms_view.o $(BIN)/rtld_linkmap_scan.o $(SRC)/chericat.c
 
 $(BIN)/common.o: $(SRC)/common.c
 	$(CC) $(CFLAGS) $(INC) -c -o $(BIN)/common.o $(SRC)/common.c
@@ -46,6 +47,9 @@ $(BIN)/vm_caps_view.o: $(SRC)/vm_caps_view.c $(DEPS)/vm_caps_view.h
 
 $(BIN)/caps_syms_view.o: $(SRC)/caps_syms_view.c $(DEPS)/caps_syms_view.h
 	$(CC) $(CFLAGS) $(INC) -c -o $(BIN)/caps_syms_view.o $(SRC)/caps_syms_view.c
+
+$(BIN)/rtld_linkmap_scan.o: $(SRC)/rtld_linkmap_scan.c
+	$(CC) $(CFLAGS) $(INC) -c -o $(BIN)/rtld_linkmap_scan.o $(SRC)/rtld_linkmap_scan.c
 
 TEST=./tests
 

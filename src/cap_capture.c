@@ -78,7 +78,7 @@ void get_capability(int pid, void* addr, int current_cap_count, char *path, char
 
 	// Getting permissions of the obtained capability
 	char str[128];
-	char permsread[16];
+	char permsread[16] = {};
 	int tokens;
 	unsigned long addrread, base, top;
 	char attrread[32];

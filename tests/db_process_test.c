@@ -68,6 +68,7 @@ int create_vm_cap_db(sqlite3 *db)
 		"start_addr VARCHAR NOT NULL, "
 		"end_addr VARCHAR NOT NULL, "
 		"mmap_path VARCHAR NOT NULL, "
+		"compart_id INTEGER NOT NULL, "
 		"kve_protection INTEGER NOT NULL, "
 		"mmap_flags INTEGER NOT NULL, "
 		"vnode_type INTEGER NOT NULL, "
@@ -225,23 +226,24 @@ int all_vm_info_index, all_cap_info_index, all_sym_info_index;
  */
 static int vm_info_query_callback(void *all_vm_info_ptr, int argc, char **argv, char **azColName)
 {
-        /* Database schema for vm has 12 columns */
-        assert(argc == 12);
+        /* Database schema for vm has 13 columns */
+        assert(argc == 13);
  
         vm_info vm_info_captured;
         vm_info_captured.start_addr = strdup(argv[0]);
         vm_info_captured.end_addr = strdup(argv[1]);
         vm_info_captured.mmap_path = strdup(argv[2]);
-     	vm_info_captured.kve_protection = atoi(argv[3]);
-     	vm_info_captured.mmap_flags = atoi(argv[4]); 
-        vm_info_captured.vnode_type = atoi(argv[5]);
+	vm_info_captured.compart_id = atoi(argv[3]);
+     	vm_info_captured.kve_protection = atoi(argv[4]);
+     	vm_info_captured.mmap_flags = atoi(argv[5]); 
+        vm_info_captured.vnode_type = atoi(argv[6]);
 
-	vm_info_captured.bss_addr = argv[6] == NULL ? NULL : strdup(argv[6]);
-        vm_info_captured.bss_size = argv[7] == NULL ? NULL : strdup(argv[7]);
-        vm_info_captured.plt_addr = argv[8] == NULL ? NULL : strdup(argv[8]);
-        vm_info_captured.plt_size = argv[9] == NULL ? NULL : strdup(argv[9]);
-        vm_info_captured.got_addr = argv[10] == NULL ? NULL : strdup(argv[10]);
-        vm_info_captured.got_size = argv[11] == NULL ? NULL : strdup(argv[11]);
+	vm_info_captured.bss_addr = argv[7] == NULL ? NULL : strdup(argv[7]);
+        vm_info_captured.bss_size = argv[8] == NULL ? NULL : strdup(argv[8]);
+        vm_info_captured.plt_addr = argv[9] == NULL ? NULL : strdup(argv[9]);
+        vm_info_captured.plt_size = argv[10] == NULL ? NULL : strdup(argv[10]);
+        vm_info_captured.got_addr = argv[11] == NULL ? NULL : strdup(argv[11]);
+        vm_info_captured.got_size = argv[12] == NULL ? NULL : strdup(argv[12]);
 
 	vm_info **result_ptr = (vm_info **)all_vm_info_ptr;
        	(*result_ptr)[all_vm_info_index++] = vm_info_captured;
@@ -464,6 +466,7 @@ int main(int argc, char *argv[])
 		printf("     %s\n", vm_info_captured[i].start_addr);
 		printf("     %s\n", vm_info_captured[i].end_addr);
 		printf("     %s\n", vm_info_captured[i].mmap_path);
+		printf("     %d\n", vm_info_captured[i].compart_id);
 		printf("     %d\n", vm_info_captured[i].kve_protection);
 	}
 	

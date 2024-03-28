@@ -60,11 +60,13 @@ def gen_full_graph(db, graph):
             
             path_label = path_list[0] + " (" + lib_start_addrs[0][0] + ")"
             fillcolor = "lightgrey"
+            rank = "source"
         else:
             path_label = path_list[0]
             fillcolor = "lightblue"
+            rank = "max"
 
-        nodes.append(gv_utils.gen_node(path_label, path_label, fillcolor))
+        nodes.append(gv_utils.gen_node(path_label, path_label, fillcolor, rank))
         
         for cap in caps:
             cap_loc_addr = cap[0] 
