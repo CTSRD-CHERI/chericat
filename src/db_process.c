@@ -266,6 +266,15 @@ static int convert_str_to_int(char *str, char *err_msg)
 	return int_val;
 }
 
+static char* _strdup_or_null(char* arg)
+{
+	if (arg == NULL) {
+		return NULL;
+	} else {
+		return strdup(arg);
+	}
+}
+
 /*
  * vm_query_callback
  * SQLite callback routine to traverse results from sqlite_exec()
@@ -282,10 +291,12 @@ static int vm_info_query_callback(void *all_vm_info_ptr, int argc, char **argv, 
         assert(argc == 11);
  
         vm_info vm_info_captured;
-        vm_info_captured.start_addr = strdup(argv[0]);
-        vm_info_captured.end_addr = strdup(argv[1]);
-        vm_info_captured.mmap_path = strdup(argv[2]);
-	vm_info_captured.compart_id = convert_str_to_int(argv[3], "compart_id is invalid");
+	int i=0;
+
+ 	vm_info_captured.start_addr = strdup(argv[i++]);
+        vm_info_captured.end_addr = strdup(argv[i++]);
+        vm_info_captured.mmap_path = strdup(argv[i++]);
+	vm_info_captured.compart_id = convert_str_to_int(argv[i++], "compart_id is invalid");
 
 	// Checking that the received values are valid integers
 	// as expected from the vm_info_captured data structure. 
@@ -293,16 +304,14 @@ static int vm_info_query_callback(void *all_vm_info_ptr, int argc, char **argv, 
 	// a more sophisticated logic in place to handle invalid data, 
 	// we will just quit the program and let users to examine 
 	// and fix the data before running this function again.
-	vm_info_captured.kve_protection = convert_str_to_int(argv[4], "kve_protection is invalid");
-     	vm_info_captured.mmap_flags = convert_str_to_int(argv[5], "mmap_flags is invalid"); 
-        vm_info_captured.vnode_type = convert_str_to_int(argv[6], "vnode_type is invalid");
+	vm_info_captured.kve_protection = convert_str_to_int(argv[i++], "kve_protection is invalid");
+     	vm_info_captured.mmap_flags = convert_str_to_int(argv[i++], "mmap_flags is invalid"); 
+        vm_info_captured.vnode_type = convert_str_to_int(argv[i++], "vnode_type is invalid");
 
-	//vm_info_captured.bss_addr = argv[7] == NULL ? NULL : strdup(argv[7]);
-        //vm_info_captured.bss_size = argv[8] == NULL ? NULL : strdup(argv[8]);
-        vm_info_captured.plt_addr = argv[7] == NULL ? NULL : strdup(argv[7]);
-        vm_info_captured.plt_size = argv[8] == NULL ? NULL : strdup(argv[8]);
-        vm_info_captured.got_addr = argv[9] == NULL ? NULL : strdup(argv[9]);
-        vm_info_captured.got_size = argv[10] == NULL ? NULL : strdup(argv[10]);
+        vm_info_captured.plt_addr = _strdup_or_null(argv[i++]);
+        vm_info_captured.plt_size = _strdup_or_null(argv[i++]);
+        vm_info_captured.got_addr = _strdup_or_null(argv[i++]);
+        vm_info_captured.got_size = _strdup_or_null(argv[i++]);
 
 	vm_info **result_ptr = (vm_info **)all_vm_info_ptr;
        	(*result_ptr)[all_vm_info_index++] = vm_info_captured;
