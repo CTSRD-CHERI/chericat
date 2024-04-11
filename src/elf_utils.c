@@ -164,10 +164,13 @@ void get_elf_info(sqlite3 *db, Elf *elfFile, char *source, u_long source_base, s
 	if (gelf_getehdr(elfFile, &ehdr) == NULL) {
 		fprintf(stderr, "Can't read ELF header for %s\n", source);
 		elf_end(elfFile);
+		return;
 	}
 
 	if (elf_getshdrstrndx(elfFile, &shstrndx) != 0) {
 		fprintf(stderr, "elf_getshdrstrndx() failed: %s\n", elf_errmsg(-1));
+		elf_end(elfFile);
+		return;
 	}
 
 	scn = NULL;
@@ -187,11 +190,13 @@ void get_elf_info(sqlite3 *db, Elf *elfFile, char *source, u_long source_base, s
 		}
 
 		special_sections ssect_captured;
+		/*
 		if (strcmp(section_name, ".bss") == 0) {
 			ssect_captured.bss_addr = shdr.sh_addr+source_base;
 			ssect_captured.bss_size = shdr.sh_size;
 
 		}
+		*/
                 if (strcmp(section_name, ".plt") == 0) {
                         ssect_captured.plt_addr = shdr.sh_addr+source_base;
 			ssect_captured.plt_size = shdr.sh_size;

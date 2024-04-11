@@ -33,10 +33,12 @@
 
 import graphviz
 import sys, os, argparse
+import time
 
 import db_utils
 import full_graph
 import cap_graph
+import comparts_graph
 
 parser = argparse.ArgumentParser(prog='chericat_graphs')
 parser.add_argument(
@@ -63,13 +65,26 @@ parser.add_argument(
 	nargs=2,
 )
 
+parser.add_argument(
+    '-comp',
+    help="Show compartments graph",
+    action='store_true',
+)
+
+parser.add_argument(
+    '-compc',
+    help="Show compartments (has_capability relationship) graph",
+    action='store_true',
+)
+
 args = parser.parse_args()
 
 if args.d:
 	db = args.d
+	dbname = os.path.basename(db)
 
 if args.g:
-	digraph = graphviz.Digraph('G', filename='graph_overview.gv')
+	digraph = graphviz.Digraph('G', filename=dbname+'.graph_overview.gv')
 	full_graph.gen_full_graph(db, digraph)
 	digraph.render(directory='graph-output', view=True)  
 
@@ -80,4 +95,21 @@ if args.c:
 	digraph = graphviz.Digraph('G', filename=args.c[0]+'_vs_'+args.c[1]+'.gv')
 	cap_graph.show_caps_between_two_libs(db, args.c[0], args.c[1], digraph)
 	digraph.render(directory='graph-output', view=True)
+
+if args.comp:
+    start = time.perf_counter()
+    digraph = graphviz.Digraph('G', filename=dbname+'.comparts_graph.gv')
+    comparts_graph.show_comparts(db, digraph)
+    end = time.perf_counter()
+    print("Comparts graph generation time taken: " + str(end-start) + "s")
+
+    digraph.render(directory='graph-output', view=True)
+
+if args.compc:
+    start = time.perf_counter()
+    digraph = graphviz.Digraph('G', filename=dbname+'.cc_graph.gv')
+    comparts_graph.show_comparts_has_caps(db, digraph)
+    end = time.perf_counter()
+    print("Capability comparts graph generation time taken: " + str(end-start) + "s")
+    digraph.render(directory='graph-output', view=True)
 

@@ -41,11 +41,14 @@ def gen_records(graph, nodes, edge_dict_list):
     graph.node_attr['fillcolor'] = "lightblue"
     graph.node_attr['style'] = 'filled'
     graph.edge_attr['fontname'] = "Courier"
-    graph.graph_attr['rankdir'] = "RL"
+    graph.graph_attr['rankdir'] = "TB"
     graph.node_attr['fontsize'] = "10"
         
     for node in nodes:
-        graph.node(node.get("id"), node.get("txt"), fillcolor=node.get("fillcolor"))
+        graph.node(node.get("id"), 
+                   node.get("txt"), 
+                   fillcolor=node.get("fillcolor"),
+                   rank=node.get("rank"))
         
     edges = []
     for edge_dict in edge_dict_list:
@@ -56,10 +59,11 @@ def gen_records(graph, nodes, edge_dict_list):
             penwidth=edge_dict.get("penwidth")
         )
     
-def gen_node(node_id, node_txt, fillcolor):
+def gen_node(node_id, node_txt, fillcolor, rank):
     node = {}
     node["id"] = node_id
     node["txt"] = node_txt
     node["fillcolor"] = fillcolor
+    node["rank"] = rank
     return node
 
