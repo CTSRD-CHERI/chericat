@@ -119,10 +119,26 @@ void scan_mem(sqlite3 *db, int pid)
 
 	/* Maintain the list of paths that have already been had their ELF parsed, so that
 	 * we don't duplicate data or scan unnecessarily.
-	 * Choosing 50 as the max number for now, ideally it should be able to grow with the 
-	 * number of paths identified.
 	 */
-	struct kinfo_vmentry *seen_kivp = calloc(200, sizeof(struct kinfo_vmentry));
+	typedef struct {
+		size_t size;
+		size_t capacity;
+		struct kinfo_vmentry *seen_kivp;
+	}seen_kivp_wrapper_struct;
+
+	seen_kivp_wrapper_struct* seen_kivp_wrapper = (seen_kivp_wrapper_struct*)malloc(sizeof(seen_kivp_wrapper_struct));
+	if (!seen_kivp_wrapper) {
+		errx(1, "Cannot allocate %lu bytes for the kivp array container", sizeof(seen_kivp_wrapper_struct));
+	}
+	int initial_size = 100;
+	seen_kivp_wrapper->size = 0;
+	seen_kivp_wrapper->capacity = initial_size;
+	seen_kivp_wrapper->seen_kivp = calloc(initial_size, sizeof(struct kinfo_vmentry));
+	if (!seen_kivp_wrapper->seen_kivp) {
+		errx(1, "Cannot allocate %lu bytes for the kivp wrapper", initial_size*sizeof(struct kinfo_vmentry));
+	}
+
+
 	special_sections *ssect = (special_sections *)calloc(vmcnt, sizeof(special_sections));
 	assert(ssect != NULL);
 	int ssect_index = 0;
@@ -136,14 +152,27 @@ void scan_mem(sqlite3 *db, int pid)
 			bool seen=0;
 
 			for (int j=0; j<seen_index; j++) {
-				if (strcmp(seen_kivp[j].kve_path, kivp->kve_path) == 0) {
+				if (strcmp(seen_kivp_wrapper->seen_kivp[j].kve_path, kivp->kve_path) == 0) {
 					seen = 1;
 					break;
 				}
 			}
 
 			if (!seen) {
-				seen_kivp[seen_index] = *kivp;
+				if (seen_kivp_wrapper->size == seen_kivp_wrapper->capacity) {
+					struct kinfo_vmentry *temp = seen_kivp_wrapper->seen_kivp;
+					seen_kivp_wrapper->capacity <<= 1;
+					seen_kivp_wrapper->seen_kivp = realloc(seen_kivp_wrapper->seen_kivp, seen_kivp_wrapper->capacity*sizeof(struct kinfo_vmentry));
+					if (!seen_kivp_wrapper->seen_kivp) {
+						errx(1, "Cannot grow the size of the kivp array");
+						seen_kivp_wrapper->seen_kivp = temp;
+					}
+				}				
+				seen_kivp_wrapper->seen_kivp[seen_index] = *kivp;
+				seen_kivp_wrapper->size++;
+				
+				printf("TESTING: seen_kivp_wrapper size is %lu\n", seen_kivp_wrapper->size);
+				printf("TESTING: seen_kivp_wrapper capacity is %lu\n", seen_kivp_wrapper->capacity);
 				get_elf_info(
 					db, 
 					read_elf(kivp->kve_path), 
@@ -160,8 +189,8 @@ void scan_mem(sqlite3 *db, int pid)
 			int found=0;
 			for (int j=0; j<seen_index; j++) {
 
-				if (seen_kivp[j].kve_start == kivp->kve_reservation) {
-					mmap_path = strdup(seen_kivp[j].kve_path);
+				if (seen_kivp_wrapper->seen_kivp[j].kve_start == kivp->kve_reservation) {
+					mmap_path = strdup(seen_kivp_wrapper->seen_kivp[j].kve_path);
 					found = 1;
 					break;
 				}
@@ -314,7 +343,8 @@ void scan_mem(sqlite3 *db, int pid)
 		ptrace_detach(pid);
 	}
 	
-	free(seen_kivp);
+	free(seen_kivp_wrapper->seen_kivp);
+	free(seen_kivp_wrapper);
 
 	if (insert_vm_query_values != NULL) {
 		char query_hdr[] = "INSERT INTO vm(start_addr, end_addr, mmap_path, compart_id, kve_protection, mmap_flags, vnode_type) VALUES";
