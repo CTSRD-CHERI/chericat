@@ -131,6 +131,7 @@ void scan_mem(sqlite3 *db, int pid)
 		errx(1, "Cannot allocate %lu bytes for the kivp array container", sizeof(seen_kivp_wrapper_struct));
 	}
 	int initial_size = 100;
+	int growth_size = 100;
 	seen_kivp_wrapper->size = 0;
 	seen_kivp_wrapper->capacity = initial_size;
 	seen_kivp_wrapper->seen_kivp = calloc(initial_size, sizeof(struct kinfo_vmentry));
@@ -161,10 +162,10 @@ void scan_mem(sqlite3 *db, int pid)
 			if (!seen) {
 				if (seen_kivp_wrapper->size == seen_kivp_wrapper->capacity) {
 					struct kinfo_vmentry *temp = seen_kivp_wrapper->seen_kivp;
-					seen_kivp_wrapper->capacity <<= 1;
+					seen_kivp_wrapper->capacity = seen_kivp_wrapper->capacity + growth_size;
 					seen_kivp_wrapper->seen_kivp = realloc(seen_kivp_wrapper->seen_kivp, seen_kivp_wrapper->capacity*sizeof(struct kinfo_vmentry));
 					if (!seen_kivp_wrapper->seen_kivp) {
-						errx(1, "Cannot grow the size of the kivp array");
+						errx(1, "Out of memory, cannot grow the size of the kivp array any more, current size is: %lu", seen_kivp_wrapper->size);
 						seen_kivp_wrapper->seen_kivp = temp;
 					}
 				}				
