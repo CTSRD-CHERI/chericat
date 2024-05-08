@@ -120,22 +120,16 @@ void scan_mem(sqlite3 *db, int pid)
 	/* Maintain the list of paths that have already been had their ELF parsed, so that
 	 * we don't duplicate data or scan unnecessarily.
 	 */
-	typedef struct {
-		size_t size;
-		size_t capacity;
-		struct kinfo_vmentry *seen_kivp;
-	}seen_kivp_wrapper_struct;
+	size_t seen_kivp_buffer_size;
+	size_t seen_kivp_buffer_capacity;
+	struct kinfo_vmentry *seen_kivp;
 
-	seen_kivp_wrapper_struct* seen_kivp_wrapper = (seen_kivp_wrapper_struct*)malloc(sizeof(seen_kivp_wrapper_struct));
-	if (!seen_kivp_wrapper) {
-		errx(1, "Cannot allocate %lu bytes for the kivp array container", sizeof(seen_kivp_wrapper_struct));
-	}
 	int initial_size = 100;
 	int growth_size = 100;
-	seen_kivp_wrapper->size = 0;
-	seen_kivp_wrapper->capacity = initial_size;
-	seen_kivp_wrapper->seen_kivp = calloc(initial_size, sizeof(struct kinfo_vmentry));
-	if (!seen_kivp_wrapper->seen_kivp) {
+	seen_kivp_buffer_size = 0;
+	seen_kivp_buffer_capacity = initial_size;
+	seen_kivp = calloc(initial_size, sizeof(struct kinfo_vmentry));
+	if (!seen_kivp) {
 		errx(1, "Cannot allocate %lu bytes for the kivp wrapper", initial_size*sizeof(struct kinfo_vmentry));
 	}
 
@@ -153,27 +147,23 @@ void scan_mem(sqlite3 *db, int pid)
 			bool seen=0;
 
 			for (int j=0; j<seen_index; j++) {
-				if (strcmp(seen_kivp_wrapper->seen_kivp[j].kve_path, kivp->kve_path) == 0) {
+				if (strcmp(seen_kivp[j].kve_path, kivp->kve_path) == 0) {
 					seen = 1;
 					break;
 				}
 			}
 
 			if (!seen) {
-				if (seen_kivp_wrapper->size == seen_kivp_wrapper->capacity) {
-					struct kinfo_vmentry *temp = seen_kivp_wrapper->seen_kivp;
-					seen_kivp_wrapper->capacity = seen_kivp_wrapper->capacity + growth_size;
-					seen_kivp_wrapper->seen_kivp = realloc(seen_kivp_wrapper->seen_kivp, seen_kivp_wrapper->capacity*sizeof(struct kinfo_vmentry));
-					if (!seen_kivp_wrapper->seen_kivp) {
-						errx(1, "Out of memory, cannot grow the size of the kivp array any more, current size is: %lu", seen_kivp_wrapper->size);
-						seen_kivp_wrapper->seen_kivp = temp;
+				if (seen_kivp_buffer_size == seen_kivp_buffer_capacity) {
+					seen_kivp_buffer_capacity = seen_kivp_buffer_capacity + growth_size;
+					seen_kivp = realloc(seen_kivp, seen_kivp_buffer_capacity*sizeof(struct kinfo_vmentry));
+					if (!seen_kivp) {
+						errx(1, "Out of memory, cannot grow the size of the kivp array any more, current size is: %lu", seen_kivp_buffer_size);
 					}
 				}				
-				seen_kivp_wrapper->seen_kivp[seen_index] = *kivp;
-				seen_kivp_wrapper->size++;
+				seen_kivp[seen_index] = *kivp;
+				seen_kivp_buffer_size++;
 				
-				printf("TESTING: seen_kivp_wrapper size is %lu\n", seen_kivp_wrapper->size);
-				printf("TESTING: seen_kivp_wrapper capacity is %lu\n", seen_kivp_wrapper->capacity);
 				get_elf_info(
 					db, 
 					read_elf(kivp->kve_path), 
@@ -190,8 +180,8 @@ void scan_mem(sqlite3 *db, int pid)
 			int found=0;
 			for (int j=0; j<seen_index; j++) {
 
-				if (seen_kivp_wrapper->seen_kivp[j].kve_start == kivp->kve_reservation) {
-					mmap_path = strdup(seen_kivp_wrapper->seen_kivp[j].kve_path);
+				if (seen_kivp[j].kve_start == kivp->kve_reservation) {
+					mmap_path = strdup(seen_kivp[j].kve_path);
 					found = 1;
 					break;
 				}
@@ -213,16 +203,6 @@ void scan_mem(sqlite3 *db, int pid)
 			mmap_path = strdup(kivp->kve_path);
 		}
 
-		// TODO: Will make these into a neater routine!
-		/*
-		if (kivp->kve_start <= ssect[ssect_index-1].bss_addr &&
-			kivp->kve_end >= ssect[ssect_index-1].bss_addr+ssect[ssect_index-1].bss_size) {
-			char *new_path;
-			asprintf(&new_path, "%s(.bss)", mmap_path);
-			mmap_path = strdup(new_path);
-			free(new_path);
-		}
-		*/
 		if (kivp->kve_start <= ssect[ssect_index-1].plt_addr &&
 			kivp->kve_end >= ssect[ssect_index-1].plt_addr+ssect[ssect_index-1].plt_size) {
 			char *new_path;
@@ -344,8 +324,7 @@ void scan_mem(sqlite3 *db, int pid)
 		ptrace_detach(pid);
 	}
 	
-	free(seen_kivp_wrapper->seen_kivp);
-	free(seen_kivp_wrapper);
+	free(seen_kivp);
 
 	if (insert_vm_query_values != NULL) {
 		char query_hdr[] = "INSERT INTO vm(start_addr, end_addr, mmap_path, compart_id, kve_protection, mmap_flags, vnode_type) VALUES";
