@@ -154,7 +154,7 @@ void scan_mem(sqlite3 *db, int pid)
 
 			if (!seen) {
 				if (seen_kivp_buffer_size == seen_kivp_buffer_capacity) {
-					seen_kivp_buffer_capacity <<= 1;
+					seen_kivp_buffer_capacity *= 2;
 					seen_kivp = realloc(seen_kivp, seen_kivp_buffer_capacity*sizeof(struct kinfo_vmentry));
 					if (!seen_kivp) {
 						errx(1, "Out of memory, cannot grow the size of the kivp array any more, current size is: %lu", seen_kivp_buffer_size);
