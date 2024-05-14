@@ -170,11 +170,15 @@ void scan_mem(sqlite3 *db, int pid)
 			if (found == 0) {
 
 				// The mmap vm block is not within any of the loaded library range
-				// now try to "guess" where it belong by using the vnode information
-				if (kivp->kve_type == KVME_TYPE_GUARD) {
-					mmap_path = strdup("Guard");
-				} else if (kivp->kve_flags & KVME_FLAG_GROWS_DOWN) {
-					mmap_path = strdup("Stack");
+				// so marking the block heuristically
+				if (kivp->kve_flags & KVME_FLAG_GROWS_DOWN) {
+					mmap_path = strdup("stack");
+				} else if (kivp->kve_flags & KVME_FLAG_GUARD) {
+					mmap_path = strdup("guard");
+				} else if (kivp->kve_type == KVME_TYPE_QUARANTINED) {
+					mmap_path = strdup("quarantined");
+				} else if (kivp->kve_type == KVME_TYPE_SWAP) { 
+					mmap_path = strdup("heap");
 				} else {
 					mmap_path = strdup("unknown");
 				}
@@ -230,13 +234,13 @@ void scan_mem(sqlite3 *db, int pid)
 			}
 			// Guard pages have no compartmentalisational value in chericat, hence 
 			// separating them by assigning it a special value of -3.
-			if (strcmp("Guard", mmap_path) == 0) {
+			if (strcmp("guard", mmap_path) == 0) {
 				compart_id = -3;
 			}
 			head = head->next;
 		}
 
-		if (strcmp("Stack", mmap_path) == 0) {
+		if (strcmp("stack", mmap_path) == 0) {
 			// At the bottom of the stack, i.e. the top limit bound of the stack capability
 			// the offset -32 bytes are the struct stk_bottom data, which contains the 
 			// compart_id for the stack
