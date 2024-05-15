@@ -33,7 +33,6 @@
 #define RTLD_LINKMAP_SCAN_H_
 
 #include <sqlite3.h>
-#define __CHERI_PURE_CAPABILITY__
 
 typedef struct struct_compart_data_t {
 	int id;

@@ -7,6 +7,7 @@ CFLAGS+=-g -O0
 CFLAGS+=-Wall -Wcheri
 
 SRC_BASE?=/usr/src
+ARCH+=aarch64
 INC=-I/usr/include -I/usr/local/include -I$(DEPS) -I${SRC_BASE}/libexec/rtld-elf -I${SRC_BASE}/libexec/rtld-elf/${ARCH}
 LDFLAGS=-L/usr/lib -L/usr/local/lib 
 

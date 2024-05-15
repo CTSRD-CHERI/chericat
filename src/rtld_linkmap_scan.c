@@ -29,7 +29,6 @@
  * SUCH DAMAGE.
  */
 
-#define __CHERI_PURE_CAPABILITY__
 #define RTLD_SANDBOX
 
 #include <stdio.h>

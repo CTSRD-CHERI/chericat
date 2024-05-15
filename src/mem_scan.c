@@ -119,10 +119,20 @@ void scan_mem(sqlite3 *db, int pid)
 
 	/* Maintain the list of paths that have already been had their ELF parsed, so that
 	 * we don't duplicate data or scan unnecessarily.
-	 * Choosing 50 as the max number for now, ideally it should be able to grow with the 
-	 * number of paths identified.
 	 */
-	struct kinfo_vmentry *seen_kivp = calloc(200, sizeof(struct kinfo_vmentry));
+	size_t seen_kivp_buffer_size;
+	size_t seen_kivp_buffer_capacity;
+	struct kinfo_vmentry *seen_kivp;
+
+	const int initial_size = 100;
+	seen_kivp_buffer_size = 0;
+	seen_kivp_buffer_capacity = initial_size;
+	seen_kivp = calloc(initial_size, sizeof(struct kinfo_vmentry));
+	if (!seen_kivp) {
+		errx(1, "Cannot allocate %lu bytes for the kivp wrapper", initial_size*sizeof(struct kinfo_vmentry));
+	}
+
+
 	special_sections *ssect = (special_sections *)calloc(vmcnt, sizeof(special_sections));
 	assert(ssect != NULL);
 	int ssect_index = 0;
@@ -143,7 +153,16 @@ void scan_mem(sqlite3 *db, int pid)
 			}
 
 			if (!seen) {
+				if (seen_kivp_buffer_size == seen_kivp_buffer_capacity) {
+					seen_kivp_buffer_capacity *= 2;
+					seen_kivp = realloc(seen_kivp, seen_kivp_buffer_capacity*sizeof(struct kinfo_vmentry));
+					if (!seen_kivp) {
+						errx(1, "Out of memory, cannot grow the size of the kivp array any more, current size is: %lu", seen_kivp_buffer_size);
+					}
+				}				
 				seen_kivp[seen_index] = *kivp;
+				seen_kivp_buffer_size++;
+				
 				get_elf_info(
 					db, 
 					read_elf(kivp->kve_path), 
@@ -183,16 +202,6 @@ void scan_mem(sqlite3 *db, int pid)
 			mmap_path = strdup(kivp->kve_path);
 		}
 
-		// TODO: Will make these into a neater routine!
-		/*
-		if (kivp->kve_start <= ssect[ssect_index-1].bss_addr &&
-			kivp->kve_end >= ssect[ssect_index-1].bss_addr+ssect[ssect_index-1].bss_size) {
-			char *new_path;
-			asprintf(&new_path, "%s(.bss)", mmap_path);
-			mmap_path = strdup(new_path);
-			free(new_path);
-		}
-		*/
 		if (kivp->kve_start <= ssect[ssect_index-1].plt_addr &&
 			kivp->kve_end >= ssect[ssect_index-1].plt_addr+ssect[ssect_index-1].plt_size) {
 			char *new_path;
