@@ -37,6 +37,7 @@
 #include <getopt.h>
 #include <string.h>
 #include <unistd.h>
+#include <signal.h>
 
 #include <libxo/xo.h>
 #include <cheri/cheric.h>
@@ -48,6 +49,14 @@
 #include "vm_caps_view.h"
 #include "caps_syms_view.h"
 #include "rtld_linkmap_scan.h"
+
+/* Used for signal handling, if a process has been
+ * attached to Chericat, we should do a ptrace_detach 
+ * and close the sqlite db before exiting when a 
+ * terminating signal is received for Chericat
+ */
+int target_pid=-1;
+sqlite3 *db = NULL;
 
 /*
  * usage()
@@ -84,6 +93,20 @@ static struct option long_options[] =
 	{0,0,0,0}
 };
 
+void handle_terminate(int sig)
+{
+	if (target_pid != -1) {
+		ptrace_detach(target_pid);
+	}
+
+	xo_finish();
+	if (db != NULL) {
+		sqlite3_close(db);
+	}
+	exit(sig);
+}
+
+
 int 
 main(int argc, char *argv[])
 {
@@ -99,10 +122,24 @@ main(int argc, char *argv[])
 		return 0;
 	}
 
-	sqlite3 *db = NULL;
-
 	static int debug_level = 0;
 	set_print_level(debug_level);
+
+#ifdef HAVE_SIGACTION
+	{
+	struct sigaction sa;
+	sa.sa_flags=0;
+	sa.sa_handler = sigterm;
+	sigaction(SIGINT, &sa, NULL);
+	sigaction(SIGTERM, &sa, NULL);
+	sigaction(SIGPIPE, &sa, NULL);
+	sigaction(SIGQUIT, &sa, NULL);
+#else
+	signal(SIGTERM, handle_terminate);
+	signal(SIGINT, handle_terminate);
+	signal(SIGPIPE, SIG_IGN);
+	signal(SIGQUIT, handle_terminate);
+#endif
 
 	while (opt != -1) {
 		switch (opt)
@@ -121,6 +158,8 @@ main(int argc, char *argv[])
 			char *pEnd;
 			long int pid = strtol(optarg, &pEnd, 10);
 
+			target_pid = pid;
+			
 			if (*pEnd != '\0') {
 				errx(1, "%s is not a valid pid", optarg);
 			}
