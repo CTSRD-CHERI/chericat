@@ -56,8 +56,6 @@
 #include "common.h"
 #include "db_process.h"
 
-bool attached=false;
-
 /*
  * ptrace_attach(int pid)
  * Calls the ptrace API to remotely attach a running process that has
@@ -80,7 +78,6 @@ void ptrace_attach(int pid)
                 fprintf(stderr, "ptrace waitpid failed: %s %d\n", strerror(err_waitpid), err_waitpid);
                 return;
         }
-	attached = true;
 }
 
 /*
@@ -91,12 +88,11 @@ void ptrace_attach(int pid)
  */
 void ptrace_detach(int pid)
 {
-        if (attached == true && ptrace(PT_DETACH, pid, 0, 0) == -1) {
+        if (ptrace(PT_DETACH, pid, 0, 0) == -1) {
                 int err_detach = errno;
                 fprintf(stderr, "ptrace detach failed: %s %d\n", strerror(err_detach), err_detach);
                 return;
         }
-	attached = false;
 }
 
 void print_ptype(size_t pt) {
