@@ -37,6 +37,7 @@
 #include <getopt.h>
 #include <string.h>
 #include <unistd.h>
+#include <signal.h>
 
 #include <libxo/xo.h>
 #include <cheri/cheric.h>
@@ -48,6 +49,14 @@
 #include "vm_caps_view.h"
 #include "caps_syms_view.h"
 #include "rtld_linkmap_scan.h"
+
+/* Used for signal handling, if a process has been
+ * attached to Chericat, we should do a ptrace_detach 
+ * and close the sqlite db before exiting when a 
+ * terminating signal is received for Chericat
+ */
+long int pid=-1;
+sqlite3 *db = NULL;
 
 /*
  * usage()
@@ -84,6 +93,20 @@ static struct option long_options[] =
 	{0,0,0,0}
 };
 
+void terminate_chericat(int sig)
+{
+	if (pid != -1) {
+		ptrace_detach(pid);
+	}
+
+	xo_finish();
+	
+	if (db != NULL) {
+		sqlite3_close(db);
+	}
+	exit(sig);
+}
+
 int 
 main(int argc, char *argv[])
 {
@@ -99,10 +122,13 @@ main(int argc, char *argv[])
 		return 0;
 	}
 
-	sqlite3 *db = NULL;
-
 	static int debug_level = 0;
 	set_print_level(debug_level);
+
+	signal(SIGTERM, terminate_chericat);
+	signal(SIGINT, terminate_chericat);
+	signal(SIGPIPE, SIG_IGN);
+	signal(SIGQUIT, terminate_chericat);
 
 	while (opt != -1) {
 		switch (opt)
@@ -119,7 +145,7 @@ main(int argc, char *argv[])
 			}
 
 			char *pEnd;
-			long int pid = strtol(optarg, &pEnd, 10);
+			pid = strtol(optarg, &pEnd, 10);
 
 			if (*pEnd != '\0') {
 				errx(1, "%s is not a valid pid", optarg);
@@ -172,11 +198,6 @@ main(int argc, char *argv[])
 		opt = getopt_long(argc, argv, "df:p:vl:c:", long_options, &optindex);
 	}
 
-	xo_finish();
-
-	if (db != NULL) {
-		sqlite3_close(db);
-	}
-        return 0;
+	terminate_chericat(0);
 }
 
