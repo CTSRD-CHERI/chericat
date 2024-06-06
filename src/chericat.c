@@ -107,7 +107,6 @@ void terminate_chericat(int sig)
 	exit(sig);
 }
 
-
 int 
 main(int argc, char *argv[])
 {
@@ -148,7 +147,6 @@ main(int argc, char *argv[])
 			char *pEnd;
 			pid = strtol(optarg, &pEnd, 10);
 
-			
 			if (*pEnd != '\0') {
 				errx(1, "%s is not a valid pid", optarg);
 			}
