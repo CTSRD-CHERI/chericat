@@ -126,22 +126,10 @@ main(int argc, char *argv[])
 	static int debug_level = 0;
 	set_print_level(debug_level);
 
-#ifdef HAVE_SIGACTION
-{
-	struct sigaction sa;
-	sa.sa_flags=0;
-	sa.sa_handler = sigterm;
-	sigaction(SIGINT, &sa, NULL);
-	sigaction(SIGTERM, &sa, NULL);
-	sigaction(SIGPIPE, &sa, NULL);
-	sigaction(SIGQUIT, &sa, NULL);
-}
-#else
 	signal(SIGTERM, terminate_chericat);
 	signal(SIGINT, terminate_chericat);
 	signal(SIGPIPE, SIG_IGN);
 	signal(SIGQUIT, terminate_chericat);
-#endif
 
 	while (opt != -1) {
 		switch (opt)
