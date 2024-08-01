@@ -40,76 +40,94 @@ import full_graph
 import cap_graph
 import comparts_graph
 
-parser = argparse.ArgumentParser(prog='chericat_graphs')
-parser.add_argument(
+toplevel_parser = argparse.ArgumentParser(prog='chericat_visualise')
+sub_parsers = toplevel_parser.add_subparsers(title='Views', help='libview or compview', dest='chosen_view')
+
+libview_parser = sub_parsers.add_parser('libview', add_help=False, help='Sub-commands for library-centric graphs')
+libview_parser.add_argument(
 	'-d', 
 	help='The database to use for the queries', 
-    required=True,
+	required=True,
 )
-
-parser.add_argument(
-	'-g', 
-	help='Generate full capability relationship in mmap graph', 
-	action='store_true',
-)
-
-parser.add_argument(
+libview_parser.add_argument(
 	'-r', 
 	help='Executes the SQL query on the provided db',
 	nargs=1,
 )
-    
-parser.add_argument(
+
+libview_parser.add_argument(
+	'-g', 
+	help='Generate overview graph showing capability relationships between libraries', 
+	action='store_true',
+)
+libview_parser.add_argument(
 	'-c',
 	help="Show capabilities between two loaded libraries <libname 1> <libname 2>",
 	nargs=2,
 )
 
-parser.add_argument(
-    '-comp',
-    help="Show compartments graph",
-    action='store_true',
+compview_parser = sub_parsers.add_parser('compview', add_help=False, help='Sub-commands for compartment-centric graphs')
+compview_parser.add_argument(
+	'-d', 
+	help='The database to use for the queries', 
+	required=True,
+)
+compview_parser.add_argument(
+	'-r', 
+	help='Executes the SQL query on the provided db',
+	nargs=1,
 )
 
-parser.add_argument(
-    '-compc',
-    help="Show compartments (has_capability relationship) graph",
-    action='store_true',
+compview_parser.add_argument(
+	'-g', 
+	help='Generate overview graph showing capability relationships between compartments', 
+	action='store_true',
 )
 
-args = parser.parse_args()
+compview_parser.add_argument(
+	'-g_no_perms', 
+	help="Generate overview graph showing capability relationships (but don't show permissions) between compartments", 
+	action='store_true',
+)
+
+compview_parser.add_argument(
+	'-c',
+	help="Show capabilities between two compartments <compname 1> <compname 2>",
+	nargs=2,
+)
+
+args = toplevel_parser.parse_args()
 
 if args.d:
 	db = args.d
 	dbname = os.path.basename(db)
 
-if args.g:
-	digraph = graphviz.Digraph('G', filename=dbname+'.graph_overview.gv')
-	full_graph.gen_full_graph(db, digraph)
-	digraph.render(directory='graph-output', view=True)  
-
 if args.r:
 	print(db_utils.run_sql_query(db, args.r[0]))
 
-if args.c:
-	digraph = graphviz.Digraph('G', filename=args.c[0]+'_vs_'+args.c[1]+'.gv')
+if args.g and args.chosen_view == 'libview':
+	digraph = graphviz.Digraph('G', filename=dbname+'.libview_full_graph.gv')
+	full_graph.gen_full_graph(db, digraph)
+	digraph.render(directory='graph-output', view=True)  
+
+if args.c and args.chosen_view == 'libview':
+	digraph = graphviz.Digraph('G', filename='libview_'+args.c[0]+'_vs_'+args.c[1]+'.gv')
 	cap_graph.show_caps_between_two_libs(db, args.c[0], args.c[1], digraph)
 	digraph.render(directory='graph-output', view=True)
 
-if args.comp:
-    start = time.perf_counter()
-    digraph = graphviz.Digraph('G', filename=dbname+'.comparts_graph.gv')
-    comparts_graph.show_comparts(db, digraph)
-    end = time.perf_counter()
-    print("Comparts graph generation time taken: " + str(end-start) + "s")
+if args.g and args.chosen_view=='compview':
+	start = time.perf_counter()
+	digraph = graphviz.Digraph('G', filename=dbname+'.compart_full_graph.gv')
+	comparts_graph.show_comparts(db, digraph)
+	end = time.perf_counter()
+	print("Compartments graph generation time taken: " + str(end-start) + "s")
+	digraph.render(directory='graph-output', view=True)
 
-    digraph.render(directory='graph-output', view=True)
-
-if args.compc:
-    start = time.perf_counter()
-    digraph = graphviz.Digraph('G', filename=dbname+'.cc_graph.gv')
-    comparts_graph.show_comparts_has_caps(db, digraph)
-    end = time.perf_counter()
-    print("Capability comparts graph generation time taken: " + str(end-start) + "s")
-    digraph.render(directory='graph-output', view=True)
-
+if args.chosen_view == 'compview' and args.g_no_perms:
+	start = time.perf_counter()
+	digraph = graphviz.Digraph('G', filename=dbname+'.compart_no_perms_graph.gv')
+	comparts_graph.show_comparts_no_perms_caps(db, digraph)
+	end = time.perf_counter()
+	print("Compartments graph (no perms) generation time taken: " + str(end-start) + "s")
+	digraph.render(directory='graph-output', view=True)
+	

@@ -117,7 +117,7 @@ def show_comparts(db, graph):
 
     gv_utils.gen_records(graph, nodes, edges)
 
-def show_comparts_has_caps(db, graph):
+def show_comparts_no_perms_caps(db, graph):
     get_compart_id_q = "SELECT distinct compart_id, mmap_path FROM vm"
     compart_ids = db_utils.run_sql_query(db, get_compart_id_q) # returns an array of arrays, each with 2 elements: compart_id and mmap_path
     get_caps_q = "SELECT * FROM cap_info"
@@ -130,7 +130,7 @@ def show_comparts_has_caps(db, graph):
         compart_id = results[0]
         mmap_path = os.path.basename(results[1])
 
-        print(str(compart_id) + ":" + mmap_path)
+        #print(str(compart_id) + ":" + mmap_path)
 
         if (compart_id < 0):
             fillcolor = "lightgrey"
@@ -174,7 +174,7 @@ def show_comparts_has_caps(db, graph):
                     cap_path_compart_id_json = db_utils.run_sql_query(db, find_compart_id_q)
                     # only need the first compart_id as they should be all the same 
                     cap_compart_id = cap_path_compart_id_json[0][0]
-#                   print("cap_path_label: " + str(cap_compart_id) + " single_compart_id: " + str(single_compart_id) + " compart path: " + path)
+#                   #print("cap_path_label: " + str(cap_compart_id) + " single_compart_id: " + str(single_compart_id) + " compart path: " + path)
                
                     for props in edges:
                         if props.get("src") == str(cap_compart_id) and props.get("dest") == str(compart_id):
