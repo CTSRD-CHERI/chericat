@@ -43,7 +43,7 @@ import comparts_graph
 toplevel_parser = argparse.ArgumentParser(prog='chericat_visualise')
 sub_parsers = toplevel_parser.add_subparsers(title='Views', help='libview or compview', dest='chosen_view')
 
-libview_parser = sub_parsers.add_parser('libview', add_help=False, help='Sub-commands for library-centric graphs')
+libview_parser = sub_parsers.add_parser('libview', add_help=True, help='Sub-commands for library-centric graphs')
 libview_parser.add_argument(
 	'-d', 
 	help='The database to use for the queries', 
@@ -66,7 +66,7 @@ libview_parser.add_argument(
 	nargs=2,
 )
 
-compview_parser = sub_parsers.add_parser('compview', add_help=False, help='Sub-commands for compartment-centric graphs')
+compview_parser = sub_parsers.add_parser('compview', add_help=True, help='Sub-commands for compartment-centric graphs')
 compview_parser.add_argument(
 	'-d', 
 	help='The database to use for the queries', 
@@ -105,17 +105,17 @@ if args.d:
 if args.r:
 	print(db_utils.run_sql_query(db, args.r[0]))
 
-if args.g and args.chosen_view == 'libview':
+if args.chosen_view == 'libview' and args.g:
 	digraph = graphviz.Digraph('G', filename=dbname+'.libview_full_graph.gv')
 	full_graph.gen_full_graph(db, digraph)
 	digraph.render(directory='graph-output', view=True)  
 
-if args.c and args.chosen_view == 'libview':
-	digraph = graphviz.Digraph('G', filename='libview_'+args.c[0]+'_vs_'+args.c[1]+'.gv')
+if args.chosen_view == 'libview' and args.c:
+	digraph = graphviz.Digraph('G', filename=dbname+'.libview_'+args.c[0]+'_vs_'+args.c[1]+'.gv')
 	cap_graph.show_caps_between_two_libs(db, args.c[0], args.c[1], digraph)
 	digraph.render(directory='graph-output', view=True)
 
-if args.g and args.chosen_view=='compview':
+if args.chosen_view=='compview' and args.g:
 	start = time.perf_counter()
 	digraph = graphviz.Digraph('G', filename=dbname+'.compart_full_graph.gv')
 	comparts_graph.show_comparts(db, digraph)
@@ -130,4 +130,8 @@ if args.chosen_view == 'compview' and args.g_no_perms:
 	end = time.perf_counter()
 	print("Compartments graph (no perms) generation time taken: " + str(end-start) + "s")
 	digraph.render(directory='graph-output', view=True)
-	
+
+if args.chosen_view == 'compview' and args.c:
+	digraph = graphviz.Digraph('G', filename=dbname+'.compview_'+args.c[0]+'_vs_'+args.c[1]+'.gv')
+	comparts_graph.show_caps_between_two_comparts(db, args.c[0], args.c[1], digraph)
+	digraph.render(directory='graph-output', view=True)

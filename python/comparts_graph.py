@@ -186,3 +186,97 @@ def show_comparts_no_perms_caps(db, graph):
                         edges.append({"src":str(cap_compart_id), "dest":str(compart_id), "label":""})
         
     gv_utils.gen_records(graph, nodes, edges)
+
+def show_caps_between_two_comparts(db, c1, c2, graph):
+    
+    # Get all the cap_addr (out) from the source compartment (for both c1 and c2)
+    dest_caps_from_src1_q = "SELECT cap_addr, perms FROM cap_info INNER JOIN vm ON cap_info.cap_loc_path = vm.mmap_path where vm.compart_id="+c1;
+    dest_caps_from_src1_json = db_utils.run_sql_query(db, dest_caps_from_src1_q)
+
+    dest_caps_from_src2_q = "SELECT cap_addr, perms FROM cap_info INNER JOIN vm ON cap_info.cap_loc_path = vm.mmap_path where vm.compart_id="+c2;
+    dest_caps_from_src2_json = db_utils.run_sql_query(db, dest_caps_from_src2_q)
+    
+    # Get the start and end addr to get the addr range to compart cap_addr with, to find out if any caps from
+    # c1 are pointing to c2 and vice versa
+    addr_ranges_c1_as_dest_q = "SELECT start_addr, end_addr FROM vm WHERE compart_id=" + c1
+    addr_ranges_c1_as_dest_json = db_utils.run_sql_query(db, addr_ranges_c1_as_dest_q)
+
+    addr_ranges_c2_as_dest_q = "SELECT start_addr, end_addr FROM vm WHERE compart_id=" + c2
+    addr_ranges_c2_as_dest_json = db_utils.run_sql_query(db, addr_ranges_c2_as_dest_q)
+
+    # We have all the information here at this point, just need to graph it
+
+    # First we create the two comparts nodes
+    nodes = []
+    edges = []
+    
+    # Get the paths for each compartment node
+    c1_paths_q = "SELECT distinct mmap_path FROM vm WHERE compart_id=" + c1
+    c1_paths_json = db_utils.run_sql_query(db, c1_paths_q)
+    
+    c2_paths_q = "SELECT distinct mmap_path FROM vm WHERE compart_id=" + c2
+    c2_paths_json = db_utils.run_sql_query(db, c2_paths_q)
+
+    path1 = ""
+    count = 0
+    for c1_path in c1_paths_json:
+        path1 += os.path.basename(c1_path[0])
+        if (count != len(c1_paths_json)-1):
+            path1 += ", "
+        count += 1    
+    path2 = ""
+    count = 0
+    for c2_path in c2_paths_json:
+        path2 += os.path.basename(c2_path[0])
+        if (count != len(c2_paths_json)-1):
+            path2 += ", "
+        count += 1  
+        
+    print(path1)
+    print(path2)
+    nodes.append(gv_utils.gen_node(c1, c1+":"+path1, "lightblue", "same"))
+    nodes.append(gv_utils.gen_node(c2, c2+":"+path2, "pink", "same"))
+    
+    # Iterate through each cap_addr from source c1 and find out if any of them point to c2
+    for addr_ranges_c2_as_dest in addr_ranges_c2_as_dest_json:
+        penwidth_weight = 1;
+        
+        start_addr = addr_ranges_c2_as_dest[0]
+        end_addr = addr_ranges_c2_as_dest[1]
+        
+        print("src:"+c1+" dest:"+c2+" dest addr range:"+start_addr+"-"+end_addr)
+        
+        for dest_cap_from_src1 in dest_caps_from_src1_json:
+            dest_cap = dest_cap_from_src1[0]
+            dest_perms = dest_cap_from_src1[1]
+            
+            # Now check if any of the dest caps are within the range of the dest address range
+            if dest_cap >= start_addr and dest_cap <= end_addr:
+                for props in edges:
+                    if (props.get("src") == c1 and props.get("dest") == c2):
+                        penwidth_weight = math.log((10**(float(props.get("penwidth"))) + 1), 10)
+                        edges.remove(props)
+                        break
+                edges.append({"src":c1, "dest":c2, "label":dest_perms, "penwidth":str(penwidth_weight)})
+    
+    # Iterate through each cap_addr from source c2 and find out if any of them point to c1
+    for addr_ranges_c1_as_dest in addr_ranges_c1_as_dest_json:
+        penwidth_weight = 1;
+        
+        start_addr = addr_ranges_c1_as_dest[0]
+        end_addr = addr_ranges_c1_as_dest[1]
+                
+        for dest_cap_from_src2 in dest_caps_from_src2_json:
+            dest_cap = dest_cap_from_src2[0]
+            dest_perms = dest_cap_from_src2[1]
+            
+            # Now check if any of the dest caps are within the range of the dest address range
+            if dest_cap >= start_addr and dest_cap <= end_addr:
+                for props in edges:
+                    if (props.get("src") == c2 and props.get("dest") == c1):
+                        penwidth_weight = math.log((10**(float(props.get("penwidth"))) + 1), 10)
+                        edges.remove(props)
+                        break
+                edges.append({"src":c2, "dest":c1, "label":dest_perms, "penwidth":str(penwidth_weight)})
+
+    gv_utils.gen_records(graph, nodes, edges)
