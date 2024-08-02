@@ -1,7 +1,7 @@
 # Chericat Python
 A set of python code to display Chericat capabilities related data on graphs
 
-Packages required to run the programs:
+Packages required and their tested versions to run the programs:
 
 |Name|Tested Version|
 |---|---|
@@ -10,78 +10,132 @@ Packages required to run the programs:
 |Python|3.9.17|
 |Sqlite3|3.42.0|
 
-The main program to run is "chericat_graphs.py", which can be invoked by running 
-
-```console
-$ python3.9 chericat_graphs.py
-usage: chericat_graphs [-h] -d D [-g] [-r R] [-c C C] [-l]
-chericat_graphs: error: the following arguments are required: -d
-```
-
-Without specifying any parameters to chericat_graphs.py it would complain about the missing of the compulsory argument, -d, which is the SQLite database containing the chericat capabilities data for the graphs.
-
-The output graphs are located in the graph-output directory from where you run the python program.
-
-To show all the options available and their brief description, use the --help, -h option:
+The main program to run is "chericat_graphs.py". To show all the options available and their brief description, use the --help, -h option:
 
 ```console
 $ python3.9 chericat_graphs.py --help
-usage: chericat_graphs [-h] -d D [-g] [-r R] [-c C C] [-l]
+usage: chericat_visualise [-h] {libview,compview} ...
 
-optional arguments:
-  -h, --help  show this help message and exit
-  -d D        The database to use for the queries
-  -g          Generate full capability relationship in mmap graph
-  -r R        Executes the SQL query on the provided db
-  -c C C      Show capabilities between two loaded libraries <libname 1>
-              <libname 2>
-  -l          Show compartments graph
+options:
+  -h, --help          show this help message and exit
+
+Views:
+  {libview,compview}  libview or compview
+    libview           Sub-commands for library-centric graphs
+    compview          Sub-commands for compartment-centric graphs
 ```
 
-## Capabilitiy Relationship Overview Graph
-The option -g can be used to generate a directed graph showing capabilities "relationship" between the loaded libraries in the target process. Each library further unify the .plt and .got regions.
+There are two sets of sub-commands, libveiw and compview:
 
 ```console
-$ python3.9 chericat_graphs.py -d <db> -g
+$ python3 chericat_graphs.py libview --help
+usage: chericat_visualise libview [-h] -d D [-r R] [-g] [-c C C]
+
+options:
+  -h, --help  show this help message and exit
+  -d D        The database to use for the queries
+  -r R        Executes the SQL query on the provided db
+  -g          Generate overview graph showing capability relationships between libraries
+  -c C C      Show capabilities between two loaded libraries <libname 1> <libname 2>
+
+$ python3 chericat_graphs.py compview --help
+usage: chericat_visualise compview [-h] -d D [-r R] [-g] [-g_no_perms] [-c C C]
+
+options:
+  -h, --help   show this help message and exit
+  -d D         The database to use for the queries
+  -r R         Executes the SQL query on the provided db
+  -g           Generate overview graph showing capability relationships between compartments
+  -g_no_perms  Generate overview graph showing capability relationships (but don't show permissions) between compartments
+  -c C C       Show capabilities between two compartments <compname 1> <compname 2>
 ```
 
-The output is placed in the graph-output directory, the dot output file is called graph_overview.gv, and the graph is generated in pdf format in a file called graph_overview.gv.pdf.
+The output graphs are located in the graph-output directory from where you run the python program.
+
+## Capabilitiy Relationship Overview Graph
+The option -g can be used to generate a directed graph showing capabilities "relationship" between the loaded libraries or compartments in the target process. Each library further unify the .plt and .got regions.
+
+To generate the overview graph in library-centric view:
+
+```console
+$ python3.9 chericat_graphs.py libview -d <db> -g
+```
+
+The output is placed in the graph-output directory, the dot output file is called <db>.libview_full_graph.gv, and the graph is generated in pdf format in a file called <db>.libview_full_graph.gv.pdf.
 
 The nodes on the graph represent the libraries (and special regions), for example:
 
 <p align="center">
-<img src="directed_libraries_graph.png" alt="digraph_nodes" width="150"/>
+<img src="directed_libraries_graph.png" alt="libview_full_graph" width="150"/>
 </p>
 
 and each edge represent capabilities. The direction shows the capabilities located in a library memory region has a pointer address pointing to the libraries where they are directed by the edge arrows.
 
 The thickness represents quantity - the thicker the edge is, the more capabilities were found between the two connected libraries. 
 
-## Capabilites between two specific libraries
-Sometimes it’s useful to find out the capabilities ”relationship” between two specific libraries. For example, if the writable and/or executable permissions are not expected on a capability from one library references another one, then we can validate by inspecting the graph produced.
-
-```console
-$ python3.9 chericat_graphs.py -d <db> -c <lib1> <lib2>
-```
-
-The output is places in the graph-output directory, the dot output file is named <lib1>_vs_<lib2>.gv and the graph output is generated into pdf format named <lib1>_vs_<lib2>.gv.pdf.
+Here is an example full graph generated from a simple program:
 
 <p align="center">
-<img src="caps_between_two_lib.png" alt="cap_two_libs" width="150"/>
+<img src="pp.db.libview_full_graph.png" alt="libview_full_graph" width="150"/>
 </p>
 
-## Capabilities Relationship Between All Compartments
-The option -l can be used to generate a directed graph showing capabilities between the compartments in the target process.
+Similarly, to generate the overview graph in compartment-centric view:
 
 ```console
-$ python3.9 chericat_graphs.py -d <db> -l
+$ python3.9 chericat_graphs.py compview -d <db> -g
 ```
 
-The nodes on the graph represent the compartments, each node is labelled using the names of the libraries and special regions within the same compartment (i.e. they all share the same compart id).
+The output is placed in the graph-output directory, the dot output file is called <db>.compart_full_graph.gv, and the graph is generated in pdf format in a file called <db>.compart_full_graph.gv.pdf.
 
-The edges represent capabilities. Similar to the -g option above, the direction of the edge shows the reference direction of the capability between the two compartments, and the thickness shows the quantity, the thicker the edge is, the more capabilities were found between the two connected compartments.
+The nodes on the graph represent the named compartments, and each edge represent capabilities between the compartments. Similar to the libview graph, the thickness of the edges represents quantity.
+
+Here is an example of what a compartment-centric overview graph looks like:
 
 <p align="center">
-<img src="comparts_sample.png" alt="comparts_sample" width="150"/>
+<img src="pp.db.compview_full_graph.png" alt="compview_full_graph" width="150"/>
+</p>
+
+## Capabilites between two specific libraries
+Sometimes it’s useful to find out the capabilities ”relationship” between two specific libraries or compartments. For example, if the writable and/or executable permissions are not expected on a capability from one library or compartment references another one, then we can validate by inspecting the boundaries on the graph produced.
+
+For libview:
+
+```console
+$ python3.9 chericat_graphs.py libview -d <db> -c <lib1> <lib2>
+```
+
+The output is places in the graph-output directory, the dot output file is named <db>.libview_<lib1>_vs_<lib2>.gv and the graph output is generated into pdf format named <db>.libview_<lib1>_vs_<lib2>.gv.pdf.
+
+<p align="center">
+<img src="pp.db.libview_print-pointer_vs_libc.png" alt="libview_cap_two_libs" width="150"/>
+</p>
+
+Similarly, for compview:
+
+```console
+$ python3.9 chericat_graphs.py compview -d <db> -c <compartment 1> <compartment 2>
+```
+
+The output is places in the graph-output directory, the dot output file is named <db>.compview_<lib1>_vs_<lib2>.gv and the graph output is generated into pdf format named <db>.compview_<lib1>_vs_<lib2>.gv.pdf.
+
+<p align="center">
+<img src="pp.db.compview_print-pointer_vs_libc.png" alt="compview_cap_two_libs" width="150"/>
+</p>
+
+## Simplified graph for compartment-centric overview graph
+The example above shows an easy to read graph in compview for a simple program, but it is not uncommon for a program to have over a hundred libraries or compartments and therefore the graph can get messy and difficult to read. One way to simplify the graph is to remove the distinguish between capabilities with different permissions, and simply have an edge between a capability location and the referenced location if there is at least one capability found.
+
+Command to generate this graph:
+
+```console
+$ python3.9 chericat_graphs.py compview -d <db> -g_no_perms
+```
+
+The generated dot file is named <db>.compart_no_perms.gv and the pdf output is named <db>.compart_no_perms.gv.pdf, both are also placed in the graph-output directory from where you run the Python code.
+
+Here is an example output using the same simple program as above, but without permissions details on the edges:
+
+<p align="center">
+<img src="pp.db.compart_no_perms_graph.png" alt="compview_full_graph_no_permis" width="150"/>
 </p>
 
