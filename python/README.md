@@ -92,7 +92,7 @@ The nodes on the graph represent the named compartments, and each edge represent
 Here is an example of what a compartment-centric overview graph looks like:
 
 <p align="center">
-<img src="pp.db.compview_full_graph.png" alt="compview_full_graph" width="150"/>
+<img src="pp.db.compart_full_graph.png" alt="compview_full_graph" width="150"/>
 </p>
 
 ## Capabilites between two specific libraries
@@ -113,13 +113,13 @@ The output is places in the graph-output directory, the dot output file is named
 Similarly, for compview:
 
 ```console
-$ python3.9 chericat_graphs.py compview -d <db> -c <compartment 1> <compartment 2>
+$ python3.9 chericat_graphs.py compview -d <db> -c <compname 1> <compname 2>
 ```
 
-The output is places in the graph-output directory, the dot output file is named <db>.compview_<lib1>_vs_<lib2>.gv and the graph output is generated into pdf format named <db>.compview_<lib1>_vs_<lib2>.gv.pdf.
+The output is places in the graph-output directory, the dot output file is named <db>.compview_<comp1>_vs_<comp2>.gv and the graph output is generated into pdf format named <db>.compview_<lib1>_vs_<lib2>.gv.pdf.
 
 <p align="center">
-<img src="pp.db.compview_print-pointer_vs_libc.png" alt="compview_cap_two_libs" width="150"/>
+<img src="pp.db.compview_1_vs_2.png" alt="compview_cap_two_comps" width="150"/>
 </p>
 
 ## Simplified graph for compartment-centric overview graph
