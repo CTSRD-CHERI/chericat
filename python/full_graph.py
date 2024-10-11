@@ -35,8 +35,8 @@ import json
 import math
 import sqlite3
 
-import db_utils
-import gv_utils
+from utils import db_utils
+from utils import gv_utils
 
 def gen_full_graph(db, graph):
     get_bin_paths_q = "SELECT DISTINCT mmap_path FROM vm"

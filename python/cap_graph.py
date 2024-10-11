@@ -33,8 +33,8 @@
 
 import math
 
-import db_utils
-import gv_utils
+from utils import db_utils
+from utils import gv_utils
 
 def show_caps_to_bin(db, path, graph):
     get_caps_q = "SELECT * FROM cap_info"

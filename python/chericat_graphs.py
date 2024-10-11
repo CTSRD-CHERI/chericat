@@ -35,7 +35,7 @@ import graphviz
 import sys, os, argparse
 import time
 
-import db_utils
+from utils import db_utils
 import full_graph
 import cap_graph
 import comparts_graph

@@ -41,4 +41,5 @@ def run_sql_query(db, query):
     cur.execute(query)
     result_data = json.dumps(cur.fetchall())
     result_json = json.loads(result_data)
+    conn.commit()
     return result_json

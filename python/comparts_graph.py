@@ -34,8 +34,8 @@ import math
 import sqlite3
 import os
 
-import db_utils
-import gv_utils
+from utils import db_utils
+from utils import gv_utils
 
 def show_comparts(db, graph):
     get_compart_id_q = "SELECT DISTINCT compart_id FROM vm"
