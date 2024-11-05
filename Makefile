@@ -7,9 +7,10 @@ CFLAGS+=-g -O0
 CFLAGS+=-Wall -Wcheri
 
 SRC_BASE?=/usr/src
-ARCH+=aarch64
+ARCH?=aarch64
+
 INC=-I/usr/include -I/usr/local/include -I$(DEPS) -I${SRC_BASE}/libexec/rtld-elf -I${SRC_BASE}/libexec/rtld-elf/${ARCH}
-LDFLAGS=-L/usr/lib -L/usr/local/lib 
+LDFLAGS=-L/usr/lib -L/usr/local/lib
 
 .PHONY: all
 .PHONY: make_dir
@@ -24,7 +25,7 @@ $(BIN)/:
 	mkdir -p $@
 
 $(TARGET): $(SRC)/chericat.c $(BIN)/common.o $(BIN)/mem_scan.o $(BIN)/db_process.o $(BIN)/cap_capture.o $(BIN)/elf_utils.o $(BIN)/ptrace_utils.o $(BIN)/vm_caps_view.o $(BIN)/caps_syms_view.o $(BIN)/rtld_linkmap_scan.o
-	$(CC) $(CFLAGS) $(INC) $(LDFLAGS) -DSQLITE_MEMDEBUG -lelf -lprocstat -lsqlite3 -lxo -o $(TARGET) $(BIN)/common.o $(BIN)/mem_scan.o $(BIN)/elf_utils.o $(BIN)/ptrace_utils.o $(BIN)/cap_capture.o $(BIN)/db_process.o $(BIN)/vm_caps_view.o $(BIN)/caps_syms_view.o $(BIN)/rtld_linkmap_scan.o $(SRC)/chericat.c
+	$(CC) $(CFLAGS) $(INC) $(LDFLAGS) -DSQLITE_MEMDEBUG -lelf -ldwarf -lprocstat -lsqlite3 -lxo -o $(TARGET) $(BIN)/common.o $(BIN)/mem_scan.o $(BIN)/elf_utils.o $(BIN)/ptrace_utils.o $(BIN)/cap_capture.o $(BIN)/db_process.o $(BIN)/vm_caps_view.o $(BIN)/caps_syms_view.o $(BIN)/rtld_linkmap_scan.o $(SRC)/chericat.c
 
 $(BIN)/common.o: $(SRC)/common.c
 	$(CC) $(CFLAGS) $(INC) -c -o $(BIN)/common.o $(SRC)/common.c

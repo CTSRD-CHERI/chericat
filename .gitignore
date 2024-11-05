@@ -3,6 +3,9 @@ bin/
 *.sql
 *.elf
 *.core
+*.out
+*.dump
+*.debug
 .DS_Store
 tests/test
 python/__pycache__

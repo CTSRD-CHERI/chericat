@@ -46,6 +46,7 @@ typedef struct special_sections_struct {
 } special_sections;
 
 Elf *read_elf(char *path);
+Elf *read_debug_symbols(char *debug_file);
 void get_elf_info(sqlite3 *db, Elf *elfFile, char *source, u_long source_base, special_sections **ssect, int ssect_index);
 
 #endif //ELF_UTILS_H_

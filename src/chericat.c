@@ -38,6 +38,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <signal.h>
+#include <dwarf.h>
+#include <libdwarf.h>
 
 #include <libxo/xo.h>
 #include <cheri/cheric.h>
@@ -46,6 +48,7 @@
 #include "mem_scan.h"
 #include "db_process.h"
 #include "ptrace_utils.h"
+#include "elf_utils.h"
 #include "vm_caps_view.h"
 #include "caps_syms_view.h"
 #include "rtld_linkmap_scan.h"
@@ -95,9 +98,9 @@ static struct option long_options[] =
 
 void terminate_chericat(int sig)
 {
-	if (pid != -1) {
-		ptrace_detach(pid);
-	}
+	//if (pid != -1) {
+	//	ptrace_detach(pid);
+	//}
 
 	xo_finish();
 	
@@ -152,6 +155,10 @@ main(int argc, char *argv[])
 			}
 
 			scan_mem(db, pid);
+
+			char *debug_file = "/usr/lib/debug/lib/libc.so.7.debug";
+			Elf *elf = read_debug_symbols(debug_file);
+
 			break;
 		case 'v':
 			if (db == NULL) {
