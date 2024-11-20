@@ -227,7 +227,13 @@ void get_elf_info(sqlite3 *db, Elf *elfFile, char *source, u_long source_base, s
 					continue;
 				} else {
 					// Calculate and store the address of the symbol using the base and offset
+					// For function symbols, Morello sets their LSB to indicate that those functions
+					// run in capability mode. Therefore we need to clear the bit before persisting 
+					// the symbol addresses.	
 					u_long offset = sym.st_value;
+					if (GELF_ST_TYPE(sym.st_info) == STT_FUNC) {
+						offset &= ~1;
+					}
 
 					char* query_value;
 					asprintf(&query_value, 
