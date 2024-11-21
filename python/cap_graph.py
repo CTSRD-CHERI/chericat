@@ -93,8 +93,8 @@ def show_caps_between_two_libs(db, lib1, lib2, graph):
     nodes = []
     edges = []
     
-    nodes.append(gv_utils.gen_node(lib1, lib1, "lightblue"))
-    nodes.append(gv_utils.gen_node(lib2, lib2, "pink"))
+    nodes.append(gv_utils.gen_node(lib1, lib1, "lightblue", "same"))
+    nodes.append(gv_utils.gen_node(lib2, lib2, "pink", "same"))
     
     for cap1 in lib1_caps:
         cap_loc_addr = cap1[0] 
