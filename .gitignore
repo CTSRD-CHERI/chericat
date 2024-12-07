@@ -1,10 +1,12 @@
 bin/
+src/*.o
+*.out
 *.db
 *.sql
 *.elf
 *.core
+*dump
 .DS_Store
-tests/test
 python/__pycache__
 python/graph-output
 python/.ipynb_checkpoints
