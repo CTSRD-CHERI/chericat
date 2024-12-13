@@ -215,7 +215,7 @@ int main(int argc, char **argv)
     if (opt_i > 0) {
 	// There should only be and exactly one of the l and c options provided for the -v option.
 	if ((opt_l == 0 && opt_c == 0) || (opt_l > 0 && opt_c > 0)) {
-	    exit_usage("-v requires either -l (library view) or -c (compartment view) first");
+	    exit_usage("-i requires either -l (library view) or -c (compartment view) first");
 	}
 	if (db == NULL) {
 	    int rc = sqlite3_open(get_dbname(), &db);
