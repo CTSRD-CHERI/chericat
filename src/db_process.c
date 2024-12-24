@@ -192,6 +192,37 @@ int create_elf_sym_db(sqlite3 *db)
 	return (0);
 }
 
+/*
+ * create_compartment_db
+ */
+int create_compartment_db(sqlite3 *db)
+{
+	char *compartment_table = 
+		"CREATE TABLE IF NOT EXISTS compartment_data("
+		"source_compart_name VARCHAR NOT NULL, "
+		"source_cap_addr VARCHAR NOT NULL, "
+		"dest_compart_name VARCHAR NOT NULL, "
+		"dest_cap_addr VARCHAR NOT NULL, "
+		"dest_cap_perms VARCHAR NOT NULL, "
+		"dest_cap_base VARCHAR NOT NULL, "
+		"dest_cap_top VARCHAR NOT NULL);";
+	
+	int rc;
+	char* messageError;
+
+	rc = sqlite3_exec(db, compartment_table, NULL, 0, &messageError);
+	
+	if (rc != SQLITE_OK) {
+		fprintf(stderr, "SQL error: %s\n", messageError);
+		sqlite3_free(messageError);
+		return (1);
+	} else {
+		debug_print(TROUBLESHOOT, "Database table compartment_table created successfully\n", NULL);
+	}
+
+	return (0);
+}
+
 int begin_transaction(sqlite3 *db)
 {
 	int rc;

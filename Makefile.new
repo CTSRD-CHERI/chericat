@@ -1,0 +1,13 @@
+PROG= chericat
+MAN=  chericat.1
+SRCS= src/cap_capture.c src/caps_syms_view.c src/chericat.c src/common.c src/db_process.c src/elf_utils.c src/mem_scan.c src/ptrace_utils.c src/rtld_linkmap_scan.c src/vm_caps_view.c
+
+SRC_BASE?=   /usr/src
+ARCH?=       aarch64
+LDADD+=      -lelf -lprocstat -lsqlite3 -lxo 
+
+.if !defined(LOCALBASE)
+CFLAGS+=     -I/usr/local/include -I./includes -I${SRC_BASE}/libexec/rtld-elf -I${SRC_BASE}/libexec/rtld-elf/${ARCH} -L/usr/local/lib
+.endif
+
+.include <bsd.prog.mk>

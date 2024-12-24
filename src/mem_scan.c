@@ -84,8 +84,9 @@ int _is_substring_of(char* s1, char* s2)
 
 /*              
  * scan_mem
- * When the -s option is used to attach this tool to a running process.
- * Uses ptrace to trace the mapped memory and persis the data to a db
+ * When the -v option is used to capture capabilities data from a target process 
+ * running on the same host. Captured data is stored onto a local sqlite database
+ * if a database name is provided using the -f option, or to memory.
  */
 void scan_mem(sqlite3 *db, int pid) 
 {
@@ -94,6 +95,9 @@ void scan_mem(sqlite3 *db, int pid)
 	struct kinfo_vmentry *freep, *kivp;
 	uint pcnt, vmcnt;
 
+	/* The procstat library provides convenient functions that 
+	 * can be used to obtain VM related data
+	 */
 	psp = procstat_open_sysctl();
 	assert(psp != NULL);
 
@@ -110,10 +114,15 @@ void scan_mem(sqlite3 *db, int pid)
 		errx(1, "Unable to obtain the vm map information from process %d, does chericat have the right privilege?", pid);
 	}
 
+	/* Create the VM and Compartment database tables to store
+	 * data captured by procstat and ptrace
+	 */
 	create_vm_cap_db(db);
-	debug_print(TROUBLESHOOT, "Key Stage: Attach process %d using ptrace\n", pid);
+	create_compartment_db(db);
+	debug_print(TROUBLESHOOT, "Key Stage: Created VM and Compartment db tables for %d and obtained procstat data\n", pid);
 
 	char *insert_vm_query_values;
+
 
 	struct compart_data_list *scanned_comparts = scan_rtld_linkmap(pid, psp, kipp);
 
@@ -216,8 +225,6 @@ void scan_mem(sqlite3 *db, int pid)
 			mmap_path = strdup(new_path);
 			free(new_path);
 		}
-		//struct compart_data_list *head = (struct compart_data_list*)malloc(sizeof(struct compart_data_list));
-		//memcpy(head, scanned_comparts, sizeof(struct compart_data_list));
 
 		struct compart_data_list *head = scanned_comparts;
 

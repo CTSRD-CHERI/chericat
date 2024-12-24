@@ -72,9 +72,20 @@ typedef struct sym_info_struct {
         char *addr; 
 } sym_info;
 
+typedef struct compartment_data_struct {
+	char *source_compart_name;
+	char *source_cap_addr;
+	char *dest_compart_name;
+	char *dest_cap_addr;
+	char *dest_cap_perms;
+	char *dest_cap_base;
+	char *dest_cap_top;
+} compartment_data;
+
 char *get_dbname(); 
 int create_vm_cap_db(sqlite3 *db);
 int create_elf_sym_db(sqlite3 *db);
+int create_compartment_db(sqlite3 *db);
 int sql_query_exec(sqlite3 *db, char* query, int (*callback)(void*,int,char**,char**), void *data); 
 int begin_transaction(sqlite3 *db);
 int commit_transaction(sqlite3 *db);
