@@ -58,80 +58,67 @@ else
 fi
 
 ########
-# Test that chericat with -v without -l or -c would result in an error message
+# Test that chericat with -v without show lib or show comp command would result in an error message
 ########
 pass=0
 output=$($bin -v 2>&1)
-echo "$output" | grep -q "\-v requires either \-l (library view) or \-c (compartment view)" -
+echo "$output" | grep -q "Expecting \"show lib|comp\" command after the options" -
 if [ $? == 0 ]; then 
     pass=1
 else
-    echo "Unexpected result for -v without specifying -l or -c"
+    echo "Unexpected result for -v without specifying show lib or show comp commands"
     exit 1
 fi
 
 ########
-# Test that chericat with -lv without -f or -p option would result in an error message
+# Test that chericat with -v without -f or -p option would result in an error message
 ########
 pass=0
-output=$($bin -lv 2>&1)
+output=$($bin -v show lib 2>&1)
 echo "$output" | grep -q "vm table does not exist on db" -
 if [ $? == 0 ]; then 
     pass=1
 else
-    echo "Unexpected result for -lv without -f or -p"
+    echo "Unexpected result for -v show lib without -f or -p"
     exit 1
 fi
 
 ########
-# Test that chericat with -i <name> without -l or -c would result in an error message
+# Test that chericat with -i <name> without show lib or show comp command would result in an error message
 ########
 pass=0
 output=$($bin -i "somename" 2>&1)
-echo "$output" | grep -q "\-i requires either \-l (library view) or \-c (compartment view)" -
+echo "$output" | grep -q "Expecting \"show lib|comp\" command after the options" -
 if [ $? == 0 ]; then 
     pass=1
 else
-    echo "Unexpected result for -i <name> without specifying -l or -c"
+    echo "Unexpected result for -i <name> without specifying show lib or show comp"
     exit 1
 fi
 
 ########
-# Test that chericat with -li without the library name would result in an error message
+# Test that chericat with -i without the library or compartment name would result in an error message
 ########
 pass=0
-output=$($bin -li 2>&1)
+output=$($bin -i 2>&1)
 echo "$output" | grep -q "requires an argument" -
 if [ $? == 0 ]; then 
     pass=1
 else
-    echo "Unexpected result for -li with no input"
+    echo "Unexpected result for -i with no input"
     exit 1
 fi
 
 ########
-# Test that chericat with -li <library name> without -f or -p option would result in an error message
+# Test that chericat with -i <library name> show lib|comp without -f or -p option would result in an error message
 ########
 pass=0
-output=$($bin -li some_library 2>&1)
+output=$($bin -i some_library show lib 2>&1)
 echo "$output" | grep -q "cap_info table does not exist on db" -
 if [ $? == 0 ]; then 
     pass=1
 else
-    echo "Unexpected result for -li <library name> without -f or -p"
-    exit 1
-fi
-
-########
-# Test that chericat with -ci without the compartment name would result in an error message
-########
-pass=0
-output=$($bin -ci 2>&1)
-echo "$output" | grep -q "requires an argument" -
-if [ $? == 0 ]; then 
-    pass=1
-else
-    echo "Unexpected result for -ci with no input"
+    echo "Unexpected result for -i <library name> without -f or -p"
     exit 1
 fi
 
@@ -152,7 +139,7 @@ fi
 # Test that chericat with -f with an invalid database name together with -v option would result in an error message
 ########
 pass=0
-output=$($bin -f invalid -lv 2>&1)
+output=$($bin -f invalid -v show lib 2>&1)
 echo "$output" | grep -q "vm table does not exist" -
 if [ $? == 0 ]; then 
     pass=1
@@ -165,7 +152,7 @@ fi
 # Test that chericat with -f with an invalid database name together with -i option would result in an error message
 ########
 pass=0
-output=$($bin -f invalid -li some_library 2>&1)
+output=$($bin -f invalid -i some_library show lib 2>&1)
 echo "$output" | grep -q "cap_info table does not exist" -
 if [ $? == 0 ]; then 
     pass=1

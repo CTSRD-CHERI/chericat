@@ -35,10 +35,12 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include <libxo/xo.h>
 
+#include "chericat.h"
 #include "common.h"
 #include "db_process.h"
 
@@ -59,8 +61,9 @@ static int exit_usage(const char *msg)
             "[-d|--debug]\n\t"
             "[-f|--db <database name>]\n\t"
             "[-p|--attach <pid>]\n\t"
-            "[[-l|--lib -v|--overview] | [-c|--compart -v|--overview]]\n\t"
-            "[[-l|--lib -i|--caps_info <library name>] | [-c|--compart -i|--caps_info <compartment name>]]\n"
+            "[-v|--overview]\n\t"
+            "[-i|--caps_info <library or compartment name>]\n\t"
+	    "<command> ...\n"
             "    database name    - name of the database to store data captured by chericat\n"
             "    pid              - pid of the target process\n"
             "    library name     - name of the library for which show the capabilities info\n"
@@ -70,10 +73,11 @@ static int exit_usage(const char *msg)
             "    -f Provide the database name to capture the data collected.\n"
             "       If omitted an in-memory db is used\n"
             "    -p Scan the vm blocks and persist the data to the provided database.\n"
-            "    -l Show the capabilities data in library-centric view.\n"
-            "    -c Show the capabilities data in compartment-centric view.\n"
             "    -v Show the vm info, arranged in either library- or compartment-centric view\n"
-            "    -i Show capabalities found in the provided library or compartment\n");
+            "    -i Show capabalities found in the provided library or compartment\n"
+	    "Commands:\n"
+	    "    show lib  - if used with -v or -i, shows data in library-centric view\n"
+	    "    show comp - if used with -v or -i, show data in compartment-centric view\n");
     exit(1);
 }
 
@@ -82,8 +86,6 @@ static struct option long_options[] =
     {"debug", no_argument, 0, 'd'},
     {"db", required_argument, 0, 'f'},
     {"attach", required_argument, 0, 'p'},
-    {"lib", no_argument, 0, 'l'},
-    {"compart", no_argument, 0, 'c'},
     {"overview", no_argument, 0, 'v'},
     {"caps_info", required_argument, 0, 'i'},
     {0,0,0,0}
@@ -98,25 +100,20 @@ void terminate_chericat(int sig)
     exit(sig);
 }
 
+int chericat_selected_opts;
+
 int main(int argc, char **argv)
 {
     // libxo API to parse the libxo command line arguments. They are removed once parsed and stored,
     // the program arguments would then be handled as intended without the libxo arguments.
     argc = xo_parse_args(argc, argv);
-   
-    int opt_f=0;
-    int opt_p=0;
-    int opt_l=0;
-    int opt_c=0;
-    int opt_v=0;
-    int opt_i=0;
- 
+  
     long int pid=-1;
     char *pEnd;
     char *caps_info_param;
     
     int optindex;
-    int opt = getopt_long(argc, argv, "df:p:lcvi:", long_options, &optindex);
+    int opt = getopt_long(argc, argv, "df:p:vi:", long_options, &optindex);
     
     if (opt == -1) {
         exit_usage(NULL);
@@ -138,33 +135,27 @@ int main(int argc, char **argv)
 		break;
 	    case 'f':
 		dbname = optarg;
-		++opt_f;
+		if (dbname[0] == '-') {
+		    exit_usage("-f requires a database name, and it cannot start with '-'");
+		}
+		chericat_selected_opts |= CHERICAT_DB;
 		break;
 	    case 'p':
 		pid = strtol(optarg, &pEnd, 10);
 		if (*pEnd != '\0') {
 		    errx(1, "%s is not a valid pid", optarg);
 		}
-		++opt_p;
+		chericat_selected_opts |= CHERICAT_PID;
 		break;
-            case 'l':
-                if (opt_c != 0) {
-		    exit_usage("Either -l (library view) or -c (compartment view) is allowed");
-		}
-                ++opt_l;
-                break;
-    	    case 'c':
-                if (opt_l != 0) {
-		    exit_usage("Either -l (library view) or -c (compartment view) is allowed");
-		}
-                ++opt_c;
-                break;
             case 'v':
-                ++opt_v;
+                chericat_selected_opts |= CHERICAT_SUMMARY_VIEW;
                 break;
 	    case 'i':
 		caps_info_param = optarg;
-		++opt_i;
+		if (caps_info_param[0] == '-') {
+		    exit_usage("-i requires a library or compartment name, and it cannot start with '-'");
+		}
+		chericat_selected_opts |= CHERICAT_CAP_INFO;
 		break;
             case '?':
                 exit_usage(NULL);
@@ -172,10 +163,25 @@ int main(int argc, char **argv)
             default:
                 exit_usage(NULL);
         }
-        opt = getopt_long(argc, argv, "df:p:lcvi:", long_options, &optindex);
+        opt = getopt_long(argc, argv, "df:p:vi:", long_options, &optindex);
     }
 
-    if (opt_p > 0) {
+    // We have dealt with the options and now deal with commands. The current supported commands,
+    // show library view or compartment view, only make sense if either the -v or -i options are used.
+    argv += optind;
+
+    if (((chericat_selected_opts & CHERICAT_SUMMARY_VIEW) != 0) ||
+	((chericat_selected_opts & CHERICAT_CAP_INFO) != 0)) {
+	if (argv[0] == NULL || strcmp(argv[0], "show") != 0) {
+	    exit_usage("Expecting \"show lib|comp\" command after the options");
+	} else {
+	    if (argv[1] == NULL || ((strcmp(argv[1], "lib") != 0) && (strcmp(argv[1], "comp")) != 0)) {
+		exit_usage("Expecting \"show lib|comp\" command after the options");
+	    }
+	}
+    }
+
+    if ((chericat_selected_opts & CHERICAT_PID) != 0) {
 	if (db == NULL) {
 	    int rc = sqlite3_open(get_dbname(), &db);
 	    if (rc) {
@@ -187,11 +193,7 @@ int main(int argc, char **argv)
 	scan_mem(db, pid);
     }
 
-    if (opt_v > 0) {
-	// There should only be and exactly one of the l and c options provided for the -v option.
-	if ((opt_l == 0 && opt_c == 0) || (opt_l > 0 && opt_c > 0)) {
-	    exit_usage("-v requires either -l (library view) or -c (compartment view) first");
-	}
+    if ((chericat_selected_opts & CHERICAT_SUMMARY_VIEW) != 0) {
 	if (db == NULL) {
 	    int rc = sqlite3_open(get_dbname(), &db);
 	    if (rc) {
@@ -201,22 +203,17 @@ int main(int argc, char **argv)
 	    }
 	}
 	// Library view
-	if (opt_l > 0) {
+	if (strcmp(argv[1], "lib") == 0) {
 	    xo_open_container("vm_view");
 	    vm_caps_view(db);
 	    xo_close_container("vm_view");
-	}
-	if (opt_c > 0) {
+	} else if (strcmp(argv[1], "comp") == 0) {
 	    xo_open_container("compart_view");
 	    // TODO: compart_caps_view(db);
 	    xo_close_container("compart_view");
 	}
     }
-    if (opt_i > 0) {
-	// There should only be and exactly one of the l and c options provided for the -v option.
-	if ((opt_l == 0 && opt_c == 0) || (opt_l > 0 && opt_c > 0)) {
-	    exit_usage("-i requires either -l (library view) or -c (compartment view) first");
-	}
+    if ((chericat_selected_opts & CHERICAT_CAP_INFO) != 0) {
 	if (db == NULL) {
 	    int rc = sqlite3_open(get_dbname(), &db);
 	    if (rc) {
@@ -226,12 +223,11 @@ int main(int argc, char **argv)
 	    }
 	}
 	// Library view
-	if (opt_l > 0) {
+	if (strcmp(argv[1], "lib") == 0) {
 	    xo_open_container("caps_info_lib");
 	    caps_syms_view(db, caps_info_param);
 	    xo_close_container("caps_info_lib");
-	}
-	if (opt_c > 0) {
+	} else if (strcmp(argv[1], "comp") == 0) {
 	    xo_open_container("caps_info_compart");
 	    // TODO: caps_info_compart(db, caps_info_param);
 	    xo_close_container("caps_info_compart");
