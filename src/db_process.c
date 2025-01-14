@@ -199,13 +199,14 @@ int create_compartment_db(sqlite3 *db)
 {
 	char *compartment_table = 
 		"CREATE TABLE IF NOT EXISTS compartment_data("
-		"source_compart_name VARCHAR NOT NULL, "
-		"source_cap_addr VARCHAR NOT NULL, "
-		"dest_compart_name VARCHAR NOT NULL, "
-		"dest_cap_addr VARCHAR NOT NULL, "
-		"dest_cap_perms VARCHAR NOT NULL, "
-		"dest_cap_base VARCHAR NOT NULL, "
-		"dest_cap_top VARCHAR NOT NULL);";
+		"source_start_addr VARCHAR NOT NULL, "
+		"source_end_addr VARCHAR NOT NULL, "
+		"source_compart_id INTEGER NOT NULL, "
+		"source_compart_path VARCHAR NOT NULL, "
+		"dest_cap_addr VARCHAR, "
+		"dest_cap_perms VARCHAR, "
+		"dest_cap_base VARCHAR, "
+		"dest_cap_top VARCHAR);";
 	
 	int rc;
 	char* messageError;

@@ -122,7 +122,7 @@ void scan_mem(sqlite3 *db, int pid)
 	debug_print(TROUBLESHOOT, "Key Stage: Created VM and Compartment db tables for %d and obtained procstat data\n", pid);
 
 	char *insert_vm_query_values;
-
+	char *insert_compart_query_values;
 
 	struct compart_data_list *scanned_comparts = scan_rtld_linkmap(pid, psp, kipp);
 
@@ -232,6 +232,30 @@ void scan_mem(sqlite3 *db, int pid)
 
 		while (head != NULL) {
 			compart_data_t data = head->data;
+
+			
+			char *query_value;
+			asprintf(&query_value, "(\"0x%lx\", \"0x%lx\", %d, \"%s\")", 
+					kivp->kve_start,
+					kivp->kve_end,
+					data.id,
+					data.path);
+	
+			if (i == 0) {
+				insert_compart_query_values = (char*)malloc(sizeof(query_value));
+				assert(insert_compart_query_values != NULL);
+
+				insert_compart_query_values = strdup(query_value);
+			} else {
+				char *temp;
+				asprintf(&temp, "%s,%s", 
+					insert_compart_query_values,
+					query_value);
+				insert_compart_query_values = strdup(temp);
+				free(temp);
+			}
+			free(query_value);
+
 			if (strncmp(data.path, mmap_path, strlen(data.path)) == 0) {
 				compart_id = data.id;
 				break;
@@ -340,6 +364,17 @@ void scan_mem(sqlite3 *db, int pid)
 		int db_rc = sql_query_exec(db, query, NULL, NULL);
 		debug_print(TROUBLESHOOT, "Key Stage: Inserted vm entry info to the database (rc=%d)\n", db_rc);
 		free(insert_vm_query_values);
+		free(query);
+	}
+
+	if (insert_compart_query_values != NULL) {
+		char query_hdr[] = "INSERT INTO compartment_data(source_start_addr, source_end_addr, source_compart_id, source_compart_path) VALUES";
+		char *query;
+		asprintf(&query, "%s%s;", query_hdr, insert_compart_query_values);
+	
+		int db_rc = sql_query_exec(db, query, NULL, NULL);
+		debug_print(TROUBLESHOOT, "Key Stage: Inserted compartment_data entry info to the database (rc=%d)\n", db_rc);
+		free(insert_compart_query_values);
 		free(query);
 	}
 
