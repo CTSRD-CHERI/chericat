@@ -489,6 +489,9 @@ int get_all_vm_info(sqlite3 *db, vm_info **all_vm_info_ptr)
         
         int rc = sql_query_exec(db, "SELECT * FROM vm;", vm_info_query_callback, all_vm_info_ptr);
 
+	// reset all_vm_info_index
+	all_vm_info_index = 0;
+
 	if (rc == 0) {
 		return vm_count;
 	} else {
@@ -506,6 +509,9 @@ int get_all_cap_info(sqlite3 *db, cap_info **all_cap_info_ptr)
         
         int rc = sql_query_exec(db, "SELECT * FROM cap_info;", cap_info_query_callback, all_cap_info_ptr);
 
+	// reset the all_cap_info_index
+	all_cap_info_index = 0;
+	
 	if (rc == 0) {
 		return cap_count;
 	} else {
@@ -522,6 +528,9 @@ int get_all_sym_info(sqlite3 *db, sym_info **all_sym_info_ptr)
         assert (*all_sym_info_ptr != NULL);
         
         int rc = sql_query_exec(db, "SELECT * FROM elf_sym;", sym_info_query_callback, all_sym_info_ptr);
+	
+	// reset all_sym_info_index
+	all_sym_info_index = 0;
 
 	if (rc == 0) {
 		return sym_count;
@@ -543,6 +552,8 @@ int get_cap_info_for_lib(sqlite3 *db, cap_info **cap_info_captured_ptr, char *li
 	int rc = sql_query_exec(db, query, cap_info_query_callback, cap_info_captured_ptr);
 
 	free(query);
+	// reset all_cap_info_index
+	all_cap_info_index = 0;
 
 	if (rc == 0) {
 		return cap_count;
