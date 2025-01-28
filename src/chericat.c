@@ -30,174 +30,209 @@
  * SUCH DAMAGE.
  */
 
-#include <ctype.h>
 #include <err.h>
+#include <getopt.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <getopt.h>
 #include <string.h>
 #include <unistd.h>
-#include <signal.h>
 
 #include <libxo/xo.h>
-#include <cheri/cheric.h>
 
+#include "chericat.h"
 #include "common.h"
-#include "mem_scan.h"
 #include "db_process.h"
-#include "ptrace_utils.h"
-#include "vm_caps_view.h"
-#include "caps_syms_view.h"
-#include "rtld_linkmap_scan.h"
 
-/* Used for signal handling, if a process has been
- * attached to Chericat, we should do a ptrace_detach 
- * and close the sqlite db before exiting when a 
- * terminating signal is received for Chericat
- */
-long int pid=-1;
+#include "caps_syms_view.h"
+#include "mem_scan.h"
+#include "ptrace_utils.h"
+#include "rtld_linkmap_scan.h"
+#include "vm_caps_view.h"
+
 sqlite3 *db = NULL;
 
-/*
- * usage()
- * Useful message to users to show how to run the program and what parameters are accepted.
- */
-
-static void usage()
+static int exit_usage(const char *msg)
 {
-	fprintf(stderr, "Usage: chericat [-d] [-f <database name>] [-p <pid>] [-v]\n\t[-l <pid>] [-c <binary name>]\n"
-			"     pid           - pid of the target process for a snapshot of caps info\n"
-			"     database name - name of the database to store data captured by chericat\n"
-			"     binary name   - name of the binary file for which to show the\n"
-			"                     capabilities located, with corresponding symbols\n"
-			"Options:\n"
-			"     -d Enable debugging output. Repeated -d's (up to 3) increase verbosity.\n" 
-			"     -f Provide the database name to capture the data collected by chericat.\n"
-			"        If omitted, an in-memory db is used\n"
-			"     -p Scan the mapped memory and persist the caps data to a database\n"
-			"     -v Show virtual summary info of capabilities in the target process,\n"
-			"        arranged in mmap order\n"
-			"     -l Scan RTLD linkmap for compartmentalisation information in the target process\n"
-			"     -c Show capabilities with corresponding symbols located in the provided\n"
-			"        binary\n");
+    if (msg) {
+        fprintf(stderr, "Bad arguments: %s\n", msg);
+    }
+    fprintf(stderr, "Usage: chericat\n\t"
+            "[-d|--debug]\n\t"
+            "[-f|--db <database name>]\n\t"
+            "[-p|--attach <pid>]\n\t"
+            "[-v|--overview]\n\t"
+            "[-i|--caps_info <library or compartment name>]\n\t"
+	    "<command> ...\n"
+            "    database name    - name of the database to store data captured by chericat\n"
+            "    pid              - pid of the target process\n"
+            "    library name     - name of the library for which show the capabilities info\n"
+            "    compartment name - name of the compartment for which show the capabilities info\n"
+            "Options:\n"
+            "    -d Enable debugging output. Repeated -d's (up to 3) increase verbosity.\n"
+            "    -f Provide the database name to capture the data collected.\n"
+            "       If omitted an in-memory db is used\n"
+            "    -p Scan the vm blocks and persist the data to the provided database.\n"
+            "    -v Show the vm info, arranged in either library- or compartment-centric view\n"
+            "    -i Show capabalities found in the provided library or compartment\n"
+	    "Commands:\n"
+	    "    show lib  - if used with -v or -i, shows data in library-centric view\n"
+	    "    show comp - if used with -v or -i, show data in compartment-centric view\n");
+    exit(1);
 }
 
-static struct option long_options[] = 
+static struct option long_options[] =
 {
-	{"debug_level", no_argument, 0, 'd'},
-	{"database_name", required_argument, 0, 'f'},
-	{"scan_mem", required_argument, 0, 'p'},
-	{"caps_summary", no_argument, 0, 'v'},
-	{"rtld_linkmap_scan", required_argument, 0, 'l'},
-	{"caps_symbols_summary", required_argument, 0, 'c'},
-	{0,0,0,0}
+    {"debug", no_argument, 0, 'd'},
+    {"db", required_argument, 0, 'f'},
+    {"attach", required_argument, 0, 'p'},
+    {"overview", no_argument, 0, 'v'},
+    {"caps_info", required_argument, 0, 'i'},
+    {0,0,0,0}
 };
 
 void terminate_chericat(int sig)
 {
-	if (pid != -1) {
-		ptrace_detach(pid);
-	}
-
-	xo_finish();
-	
-	if (db != NULL) {
-		sqlite3_close(db);
-	}
-	exit(sig);
+    xo_finish();
+    if (db != NULL) {
+	sqlite3_close(db);
+    }
+    exit(sig);
 }
 
-int 
-main(int argc, char *argv[])
+int chericat_selected_opts;
+
+int main(int argc, char **argv)
 {
-	// libxo API to parse the libxo command line arguments. They are removed once parsed and stored, 
-	// the program arguments would then be handled as intended without the libxo arguments.
-	argc = xo_parse_args(argc, argv);
+    // libxo API to parse the libxo command line arguments. They are removed once parsed and stored,
+    // the program arguments would then be handled as intended without the libxo arguments.
+    argc = xo_parse_args(argc, argv);
+  
+    long int pid=-1;
+    char *pEnd;
+    char *caps_info_param;
+    
+    int optindex;
+    int opt = getopt_long(argc, argv, "df:p:vi:", long_options, &optindex);
+    
+    if (opt == -1) {
+        exit_usage(NULL);
+    }
 
-	int optindex;
-	int opt = getopt_long(argc, argv, "df:p:vl:c:", long_options, &optindex);
+    static int debug_level = 0;
+    set_print_level(debug_level);
 
-	if (opt == -1) {
-		usage();
-		return 0;
-	}
-
-	static int debug_level = 0;
-	set_print_level(debug_level);
-
-	signal(SIGTERM, terminate_chericat);
-	signal(SIGINT, terminate_chericat);
-	signal(SIGPIPE, SIG_IGN);
-	signal(SIGQUIT, terminate_chericat);
-
-	while (opt != -1) {
-		switch (opt)
-		{
-		case 'p':
-			if (db == NULL) {
-        			int rc = sqlite3_open(get_dbname(), &db);
-
-        			if (rc) {
-                			fprintf(stderr, "Error open DB %s", sqlite3_errmsg(db));
-              				sqlite3_close(db);
-               		 		return (1);
-        			}
-			}
-
-			char *pEnd;
-			pid = strtol(optarg, &pEnd, 10);
-
-			if (*pEnd != '\0') {
-				errx(1, "%s is not a valid pid", optarg);
-			}
-
-			scan_mem(db, pid);
-			break;
-		case 'v':
-			if (db == NULL) {
-        			int rc = sqlite3_open(get_dbname(), &db);
-
-        			if (rc) {
-                			fprintf(stderr, "Error open DB %s", sqlite3_errmsg(db));
-              				sqlite3_close(db);
-                			return (1);
-        			}
-			}
-			xo_open_container("vm_view");
-			vm_caps_view(db);
-			xo_close_container("vm_view");
-			break;
-		case 'c':
-			if (db == NULL) {
-        			int rc = sqlite3_open(get_dbname(), &db);
-	
-        			if (rc) {
-                			fprintf(stderr, "Error open DB %s", sqlite3_errmsg(db));
-              				sqlite3_close(db);
-                			return (1);
-        			}
-			}
-			xo_open_container("cap_view");
-			caps_syms_view(db, optarg);
-			xo_close_container("cap_view");
-			break;
-		case 'l':
-			getprocs_with_procstat_sysctl(db, optarg);
-		case 'f':
-			dbname = (char*)malloc(strlen(optarg)+1);
-			strcpy(dbname, optarg);
-			break;
-		case 'd':
-			debug_level++;
-			set_print_level(debug_level);
-			break;
-		default:
-			usage();
-			exit(0);
+    signal(SIGTERM, terminate_chericat);
+    signal(SIGINT, terminate_chericat);
+    signal(SIGPIPE, SIG_IGN);
+    signal(SIGQUIT, terminate_chericat);
+    
+    while (opt != -1) {
+        switch(opt) {
+	    case 'd':
+		debug_level++;
+		set_print_level(debug_level);
+		break;
+	    case 'f':
+		dbname = optarg;
+		if (dbname[0] == '-') {
+		    exit_usage("-f requires a database name, and it cannot start with '-'");
 		}
-		opt = getopt_long(argc, argv, "df:p:vl:c:", long_options, &optindex);
+		chericat_selected_opts |= CHERICAT_DB;
+		break;
+	    case 'p':
+		pid = strtol(optarg, &pEnd, 10);
+		if (*pEnd != '\0') {
+		    errx(1, "%s is not a valid pid", optarg);
+		}
+		chericat_selected_opts |= CHERICAT_PID;
+		break;
+            case 'v':
+                chericat_selected_opts |= CHERICAT_SUMMARY_VIEW;
+                break;
+	    case 'i':
+		caps_info_param = optarg;
+		if (caps_info_param[0] == '-') {
+		    exit_usage("-i requires a library or compartment name, and it cannot start with '-'");
+		}
+		chericat_selected_opts |= CHERICAT_CAP_INFO;
+		break;
+            case '?':
+                exit_usage(NULL);
+                break;
+            default:
+                exit_usage(NULL);
+        }
+        opt = getopt_long(argc, argv, "df:p:vi:", long_options, &optindex);
+    }
+
+    // We have dealt with the options and now deal with commands. The current supported commands,
+    // show library view or compartment view, only make sense if either the -v or -i options are used.
+    argv += optind;
+
+    if (((chericat_selected_opts & CHERICAT_SUMMARY_VIEW) != 0) ||
+	((chericat_selected_opts & CHERICAT_CAP_INFO) != 0)) {
+	if (argv[0] == NULL || strcmp(argv[0], "show") != 0) {
+	    exit_usage("Expecting \"show lib|comp\" command after the options");
+	} else {
+	    if (argv[1] == NULL || ((strcmp(argv[1], "lib") != 0) && (strcmp(argv[1], "comp")) != 0)) {
+		exit_usage("Expecting \"show lib|comp\" command after the options");
+	    }
+	}
+    }
+
+    if ((chericat_selected_opts & CHERICAT_PID) != 0) {
+	if (db == NULL) {
+	    int rc = sqlite3_open(get_dbname(), &db);
+	    if (rc) {
+		fprintf(stderr, "Error open DB %s", sqlite3_errmsg(db));
+		sqlite3_close(db);
+		return (1);
+	    }
+	}
+	scan_mem(db, pid);
+    }
+
+    if ((chericat_selected_opts & CHERICAT_SUMMARY_VIEW) != 0) {
+	if (db == NULL) {
+	    int rc = sqlite3_open(get_dbname(), &db);
+	    if (rc) {
+		fprintf(stderr, "Error open DB %s", sqlite3_errmsg(db));
+		sqlite3_close(db);
+		return (1);
+	    }
+	}
+	// Library view
+	if (strcmp(argv[1], "lib") == 0) {
+	    xo_open_container("vm_view");
+	    vm_caps_view(db);
+	    xo_close_container("vm_view");
+	} else if (strcmp(argv[1], "comp") == 0) {
+	    xo_open_container("compart_view");
+	    // TODO: compart_caps_view(db);
+	    xo_close_container("compart_view");
+	}
+    }
+    if ((chericat_selected_opts & CHERICAT_CAP_INFO) != 0) {
+	if (db == NULL) {
+	    int rc = sqlite3_open(get_dbname(), &db);
+	    if (rc) {
+		fprintf(stderr, "Error open DB %s", sqlite3_errmsg(db));
+		sqlite3_close(db);
+		return (1);
+	    }
+	}
+	// Library view
+	if (strcmp(argv[1], "lib") == 0) {
+	    xo_open_container("caps_info_lib");
+	    caps_syms_view(db, caps_info_param);
+	    xo_close_container("caps_info_lib");
+	} else if (strcmp(argv[1], "comp") == 0) {
+	    xo_open_container("caps_info_compart");
+	    // TODO: caps_info_compart(db, caps_info_param);
+	    xo_close_container("caps_info_compart");
 	}
 
-	terminate_chericat(0);
+    }
+    terminate_chericat(0);
 }
-
