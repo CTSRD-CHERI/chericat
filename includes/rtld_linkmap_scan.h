@@ -36,6 +36,10 @@
 
 typedef struct struct_compart_data_t {
 	int id;
+	int names_array_size;
+	char **name;
+	caddr_t base_address;
+	size_t size;
 	char *path;
 } compart_data_t;
 

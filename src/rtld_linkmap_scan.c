@@ -29,6 +29,7 @@
  * SUCH DAMAGE.
  */
 
+#define IN_RTLD
 #define RTLD_SANDBOX
 
 #include <stdio.h>
@@ -82,6 +83,37 @@ void getprocs_with_procstat_sysctl(sqlite3 *db, char* arg_pid)
 	}
 	procstat_close(psp);
 }
+
+/* Copied from rtld-elf/rtld_c18n.c */
+typedef ssize_t string_handle;
+
+struct string_base {
+	char *buf;
+	string_handle size;
+	string_handle capacity;
+};
+
+struct compart {
+	/*
+	 * Name of the compartment
+	 */
+	const char *name;
+	/*
+	 * Names of libraries that belong to the compartment
+	 */
+	struct string_base libs;
+	/*
+	 * Symbols that the library is allowed to import, if restrict_imports is
+	 * true.
+	 */
+	struct string_base imports;
+	/*
+	 * Symbols trusted by the library.
+	 */
+	struct string_base trusts;
+	bool restrict_imports;
+};
+
 
 /*              
  * scan_rtld_linkmap
@@ -188,7 +220,7 @@ struct compart_data_list* scan_rtld_linkmap(int pid, struct procstat *psp, struc
 	for (int i=0; i<dyn_size; i++) {
 		if (target_dyn[i].d_tag == DT_DEBUG) {
 			debug = target_dyn[i].d_un.d_ptr;
-			debug_print(INFO, "Found it!! %lu\n", target_dyn[i].d_un.d_ptr);
+			debug_print(INFO, "Found r_debug! %lu\n", target_dyn[i].d_un.d_ptr);
 			break;
 		}
 	}
@@ -217,6 +249,7 @@ struct compart_data_list* scan_rtld_linkmap(int pid, struct procstat *psp, struc
 		err(1, "ptrace(PT_IO) short read: %zu vs %lu", debug_piod.piod_len, sizeof(struct r_debug));
 	}
 	debug_print(INFO, "target_debug: %p piod_offs: %p piod_len: %zu\n", target_debug, debug_piod.piod_offs, debug_piod.piod_len);
+	
 
 	struct link_map *r_map = target_debug.r_map;
 
@@ -271,11 +304,63 @@ struct compart_data_list* scan_rtld_linkmap(int pid, struct procstat *psp, struc
 		data.path = path;
 		data.id = compart_id;
 
-		struct compart_data_list *comparts;
-		comparts = (struct compart_data_list*)malloc(sizeof(struct compart_data_list));
-		comparts->data = data;
-		comparts->next = comparts_head;
-		comparts_head = comparts;
+		printf("Got the compart data: path %s id %d\n", data.path, data.id);
+
+		// To obtain the compartment name, we need to get the r_comparts pointer address from r_debug
+		// and then read the struct memory block from target process and extract the name.
+		//
+		// ((struct compart *)r_debug->r_comparts)[r_comparts_size]
+		//
+		int comparts_size = target_debug.r_comparts_size;
+		void *comparts = target_debug.r_comparts;
+		char **comparts_name_list = calloc(sizeof(char*), comparts_size);
+
+		// The entry size can be obtained from _compart_size which is a global extern variable,
+		// the value can be queried from ELF syms
+		int comparts_entry_size = 128;
+		for (int i=0; i<comparts_size; i++) {
+
+			printf("comparts: %p\n", comparts);
+
+			struct compart *comparts_entry; 
+			struct ptrace_io_desc comparts_entry_piod;
+	
+			comparts_entry_piod.piod_op = PIOD_READ_D;
+			comparts_entry_piod.piod_addr = &comparts_entry;
+			comparts_entry_piod.piod_offs = comparts;
+			comparts_entry_piod.piod_len = sizeof(void*);
+
+			int comparts_entry_read_retno = ptrace(PT_IO, pid, (caddr_t)&comparts_entry_piod, 0);
+			if (comparts_entry_read_retno == -1) {
+				err(1, "ptrace(PT_IO) short read: %zu vs %lu", comparts_entry_piod.piod_len, sizeof(void*));
+			}
+	
+			printf("comparts[%d]: %p\n", i, comparts_entry);
+			comparts = comparts+sizeof(struct compart);
+			
+			char *comparts_name = calloc(sizeof(char), 50);
+			struct ptrace_io_desc comparts_name_piod;
+			comparts_name_piod.piod_op = PIOD_READ_D;
+			comparts_name_piod.piod_addr = comparts_name;
+			comparts_name_piod.piod_offs = comparts_entry;
+			comparts_name_piod.piod_len = sizeof(char)*50;
+
+			int comparts_name_read_retno = ptrace(PT_IO, pid, (caddr_t)&comparts_name_piod, 0);
+			if (comparts_name_read_retno == -1) {
+				err(1, "ptrace(PT_IO) short read: %zu vs %lu", comparts_name_piod.piod_len, sizeof(char)*50);
+			}
+			comparts_name_list[i] = comparts_name;
+			
+			printf("scanned r_comparts name has value: %s\n", comparts_name);
+		}
+		data.names_array_size = comparts_size;
+		data.name = comparts_name_list;
+
+		struct compart_data_list *comparts_list;
+		comparts_list = (struct compart_data_list*)malloc(sizeof(struct compart_data_list));
+		comparts_list->data = data;
+		comparts_list->next = comparts_head;
+		comparts_head = comparts_list;
 		
 		free(next_entry);
 	}

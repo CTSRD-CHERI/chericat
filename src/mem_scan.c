@@ -241,6 +241,11 @@ void scan_mem(sqlite3 *db, int pid)
 					data.id,
 					data.path);
 	
+			printf("How many names? %d\n", data.names_array_size);
+			for (int n=0; n<data.names_array_size; n++) {
+				printf("got compart name during scan: %s\n", data.name[n]);
+			}
+
 			if (i == 0) {
 				insert_compart_query_values = (char*)malloc(sizeof(query_value));
 				assert(insert_compart_query_values != NULL);
