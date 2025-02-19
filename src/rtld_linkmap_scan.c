@@ -30,6 +30,7 @@
  */
 
 #define RTLD_SANDBOX
+#define IN_RTLD
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -48,7 +49,6 @@
 #include <sys/socket.h>
 #include <sys/sysctl.h>
 #include <libprocstat.h>
-#include <sys/link_elf.h>
 
 #include <libxo/xo.h>
 #include <sys/ptrace.h>
@@ -56,6 +56,37 @@
 #include "common.h"
 #include "ptrace_utils.h"
 #include "rtld_linkmap_scan.h"
+//#include <sys/link_elf.h>
+
+/* Copied from rtld-elf/rtld_c18n.c */
+typedef ssize_t string_handle;
+
+struct string_base {
+    char *buf;
+    string_handle size;
+    string_handle capacity;
+};
+
+typedef struct compart {
+    /*
+     * Name of the compartment
+     */
+    const char *name;
+    /*
+     * Names of libraries that belong to the compartment
+     */
+    struct string_base libs;
+    /*
+     * Symbols that the library is allowed to import, if restrict_imports is
+     * true.
+     */
+    struct string_base imports;
+    /*
+     * Symbols trusted by the library.
+     */
+    struct string_base trusts;
+    bool restrict_imports;
+} compart_t;
 
 void getprocs_with_procstat_sysctl(sqlite3 *db, char* arg_pid) 
 {
@@ -75,7 +106,8 @@ void getprocs_with_procstat_sysctl(sqlite3 *db, char* arg_pid)
 		err(1, "procstat did not get expected result from process %d, instead of a process count of 1, it got %d", pid, pcnt);
 	}
 
-	scan_rtld_linkmap(pid, psp, kipp);
+	struct r_debug obtained_r_debug = get_r_debug(pid, psp, kipp);
+	scan_rtld_linkmap(pid, obtained_r_debug);
 
 	if (kipp != NULL) {
 		procstat_freeprocs(psp, kipp);
@@ -84,212 +116,205 @@ void getprocs_with_procstat_sysctl(sqlite3 *db, char* arg_pid)
 }
 
 /*              
- * scan_rtld_linkmap
- * When the -l option is used to attach this tool to a running process, 
- * this is called to scan the ELF aux vector to obtain the location of 
- * the dynamic table, which can then be traced to find the entry to the
- * rtld link_map.
+ * get_r_debug
+ * This is called to scan the ELF aux vector to obtain the location of 
+ * the dynamic table, which can then be traced to find the debug struct
+ * exposed by cheribsd for debugger. This debug struct, r_debug, contains
+ * the entry to the rtld link_map and compartments array.
  */
-struct compart_data_list* scan_rtld_linkmap(int pid, struct procstat *psp, struct kinfo_proc *kipp)
+struct r_debug get_r_debug(int pid, struct procstat *psp, struct kinfo_proc *kipp)
 {
-	// ***** AUXV --> PHDR ***** //
-	// First we need to use the auxiliary vector obtained by procstat to find out
-	// the location, size and number of the PHDR
-	Elf_Auxinfo *auxv;
-	unsigned int auxvcnt;
-	const Elf_Phdr *phdr;
-	int phent, phnum;
-	auxv = procstat_getauxv(psp, kipp, &auxvcnt);
-	if (auxv == NULL) {
-		err(1, "Unable to obtain the auxiliary vector from target process %d, does chericat have the right privilege?", pid);
-	}
+    // ***** AUXV --> PHDR ***** //
+    // First we need to use the auxiliary vector obtained by procstat to find out
+    // the location, size and number of the PHDR
+    Elf_Auxinfo *auxv;
+    unsigned int auxvcnt;
+    const Elf_Phdr *phdr;
+    int phent, phnum;
+    auxv = procstat_getauxv(psp, kipp, &auxvcnt);
 
-	for (int i=0; i<auxvcnt; i++) {
-		switch (auxv[i].a_type) {
-		case AT_PHDR:
-			phdr = (const Elf_Phdr *)auxv[i].a_un.a_ptr;
-			break;
-		case AT_PHENT:
-			phent = auxv[i].a_un.a_val;
-			break;
-		case AT_PHNUM:
-			phnum = auxv[i].a_un.a_val;
-			break;
-		default:
-			break;
-		}
-	}
-	assert(phent == sizeof(Elf_Phdr));
-        debug_print(INFO, "phdr: %p phent: %d phnum: %d\n", phdr, phent, phnum);
+    if (auxv == NULL) {
+	err(1, "Unable to obtain the auxiliary vector from target process %d, does chericat have the right privilege?", pid);
+    }
 
-	// ***** PHDR --> PT_DYNAMIC ***** //
-	// Using the PHDR address, read the program header entries of the target
-	// process space into memory using ptrace
-	ptrace_attach(pid);
+    for (int i=0; i<auxvcnt; i++) {
+	switch (auxv[i].a_type) {
+	case AT_PHDR:
+	    phdr = (const Elf_Phdr *)auxv[i].a_un.a_ptr;
+	    break;
+	case AT_PHENT:
+	    phent = auxv[i].a_un.a_val;
+	    break;
+	case AT_PHNUM:
+	    phnum = auxv[i].a_un.a_val;
+	    break;
+	default:
+	    break;
+	}
+    }
+    assert(phent == sizeof(Elf_Phdr));
+    debug_print(INFO, "phdr: %p phent: %d phnum: %d\n", phdr, phent, phnum);
+
+    // ***** PHDR --> PT_DYNAMIC ***** //
+    // Using the PHDR address, read the program header entries of the target
+    // process space into memory using ptrace
+    ptrace_attach(pid);
 	
-	Elf_Phdr *target_phdr = calloc(phent, phnum);
-	struct ptrace_io_desc piod;
+    Elf_Phdr *target_phdr = calloc(phent, phnum);
+    piod_read(pid, PIOD_READ_D, (void*)phdr, target_phdr, phent*phnum);
+    debug_print(INFO, "remote_phdr: %p local_phdr: %p\n", phdr, target_phdr);
 
-	piod.piod_op = PIOD_READ_D;
-	piod.piod_addr = target_phdr;
-	piod.piod_offs = (void*)phdr;
-	piod.piod_len = phent*phnum;
-
-	int retno = ptrace(PT_IO, pid, (caddr_t)&piod, 0);
+    // Scan the program header entries from read memory to find the PT_DYNAMIC section
+    void *dyn = malloc(sizeof(void*));
+    int dyn_size=0;
 	
-	if (retno == -1) {
-		err(1, "ptrace(PT_IO) failed to scan process %d at %p", pid, phdr);
+    for (int i=0; i<phnum; i++) {
+	if (target_phdr[i].p_type == PT_DYNAMIC) {
+	    dyn = (void *)target_phdr[i].p_vaddr;
+	    dyn_size = target_phdr[i].p_memsz;
+	    debug_print(INFO, "Found PT_DYNAMIC section: %p\n", dyn);
+	    break;
 	}
-	if (piod.piod_len != phent*phnum) {
-		err(1, "ptrace(PT_IO) short read: %zu vs %d", piod.piod_len, phent*phnum);
-	}
-	debug_print(INFO, "target_phdr: %p piod_offs: %p piod_len: %zu\n", target_phdr, piod.piod_offs, piod.piod_len);
+    }
+    assert(dyn != NULL);
+
+    // ***** PT_DYNAMIC --> DT_DEBUG ***** //
+    // Now that we have the address of the dynamic section, we can use ptrace 
+    // to scan the memory to obtain the data stored in it.
+    Elf_Dyn *target_dyn = calloc(dyn_size, sizeof(*target_dyn));
+    int phoff = sizeof(Elf_Ehdr);
+    uint64_t elf_base = (uint64_t)((char*)phdr - phoff);
+    piod_read(pid, PIOD_READ_D, (dyn+elf_base), target_dyn, dyn_size);
+    debug_print(INFO, "remote_dyn: %p local_dyn %p\n", dyn+elf_base, target_dyn);
 	
-	// Scan the program header entries from read memory to find the PT_DYNAMIC section
-	void *dyn = malloc(sizeof(void*));
-	int dyn_size=0;
-	
-	for (int i=0; i<phnum; i++) {
-		if (target_phdr[i].p_type == PT_DYNAMIC) {
-			dyn = (void *)target_phdr[i].p_vaddr;
-			dyn_size = target_phdr[i].p_memsz;
-			debug_print(INFO, "Found it: %p\n", dyn);
-			break;
-		}
+    void *remote_debug = malloc(sizeof(void*));
+
+    for (int i=0; i<dyn_size; i++) {
+	if (target_dyn[i].d_tag == DT_DEBUG) {
+	    remote_debug = (void*)target_dyn[i].d_un.d_ptr;
+	    debug_print(INFO, "Found r_debug: %lu\n", target_dyn[i].d_un.d_ptr);
+	    break;
 	}
-	assert(dyn != NULL);
+    }
+    assert(remote_debug != NULL);
 
-	// ***** PT_DYNAMIC --> DT_DEBUG ***** //
-	// Now that we have the address of the dynamic section, we can use ptrace 
-	// to scan the memory to obtain the data stored in it.
-	Elf_Dyn *target_dyn = calloc(dyn_size, sizeof(*target_dyn));
-	struct ptrace_io_desc dyn_piod;
+    // ***** DT_DEBUG --> Linkmap ***** //
+    // We now have the address of the debug section on the dynamic table
+    // next step is then to use the same ptrace trick to get the data at this 
+    // address in the target process. This data contains the rtld link_map 
+    // we are looking for.
 
-	int phoff = sizeof(Elf_Ehdr);
-	uint64_t elf_base = (char*)phdr - phoff;
-	
-	dyn_piod.piod_op = PIOD_READ_D;
-	dyn_piod.piod_addr = target_dyn;
-	dyn_piod.piod_offs = dyn + elf_base;
-	dyn_piod.piod_len = dyn_size;
+#ifndef IN_RTLD
+#error "not in rtld"
+#endif
+#ifndef RTLD_SANDBOX
+#error "not in sandbox"
+#endif
 
-	int dyn_retno = ptrace(PT_IO, pid, (caddr_t)&dyn_piod, 0);
-	
-	if (dyn_retno == -1) {
-		err(1, "ptrace(PT_IO) failed to scan process %d at %p", pid, dyn_piod.piod_offs);
-	}
-	if (dyn_piod.piod_len != dyn_size) {
-		err(1, "ptrace(PT_IO) short read: %zu vs %d", dyn_piod.piod_len, dyn_size);
-	}
-	debug_print(INFO, "target_dyn: %p piod_offs: %p dyn_size: %d piod_len: %zu\n", target_dyn, dyn_piod.piod_offs, dyn_size, dyn_piod.piod_len);
-	
-	void *debug = malloc(sizeof(void*));
+    struct r_debug local_debug;
+    printf("local_debug just been created: %#p and the size of struct is %lu\n", &local_debug, sizeof(struct r_debug));
 
-	for (int i=0; i<dyn_size; i++) {
-		if (target_dyn[i].d_tag == DT_DEBUG) {
-			debug = target_dyn[i].d_un.d_ptr;
-			debug_print(INFO, "Found it!! %lu\n", target_dyn[i].d_un.d_ptr);
-			break;
-		}
-	}
+    piod_read(pid, PIOD_READ_D, remote_debug, (void*)&local_debug, sizeof(struct r_debug));
 
-	assert(debug != NULL);
+    ptrace_detach(pid);
+    free(target_phdr);
+    free(target_dyn);
+    free(dyn);
+    free(remote_debug);
 
-	// ***** DT_DEBUG --> Linkmap ***** //
-	// We now have the address of the debug section on the dynamic table
-	// next step is then to use the same ptrace trick to get the data at this 
-	// address in the target process. This data contains the rtld link_map 
-	// we are looking for.
-	struct r_debug target_debug;
-	struct ptrace_io_desc debug_piod;
+    if (auxv != NULL) {
+	procstat_freeauxv(psp, auxv);
+    }
+    return local_debug;
+}
 
-	debug_piod.piod_op = PIOD_READ_D;
-	debug_piod.piod_addr = &target_debug;
-	debug_piod.piod_offs = debug;
-	debug_piod.piod_len = sizeof(struct r_debug);
+/* scan_linkmap
+ * Using the linkmap exposed via r_debug, we can get the list of mapped libraries and their 
+ * corresponding compart_id.
+ */
+struct compart_data_list* scan_rtld_linkmap(int pid, struct r_debug target_debug)
+{
+    ptrace_attach(pid);
 
-	int debug_retno = ptrace(PT_IO, pid, (caddr_t)&debug_piod, 0);
-	
-	if (debug_retno == -1) {
-		err(1, "ptrace(PT_IO) failed to scan process %d at %p", pid, debug_piod.piod_offs);
-	}
-	if (debug_piod.piod_len != sizeof(struct r_debug)) {
-		err(1, "ptrace(PT_IO) short read: %zu vs %lu", debug_piod.piod_len, sizeof(struct r_debug));
-	}
-	debug_print(INFO, "target_debug: %p piod_offs: %p piod_len: %zu\n", target_debug, debug_piod.piod_offs, debug_piod.piod_len);
+    struct link_map *r_map = target_debug.r_map;
+    //void *linkmap_addr = __containerof(r_map, Obj_Entry, linkmap);
+    //Obj_Entry target_obj_entry; 
+    //piod_read(pid, PIOD_READ_D, linkmap_addr, &target_obj_entry, sizeof(Obj_Entry));
+    //debug_print(INFO, "remote_obj_entry: %p local_obj_entry: %p\n", linkmap_addr, target_obj_entry);
 
-	struct link_map *r_map = target_debug.r_map;
+    // target_link_map is a linked list, we need to traverse the entries by following l_next and look up the 
+    // Obj_Entry data in the target process for each l_addr
+    // We can now fill in the compart data structure to return.	
+    //Obj_Entry entry = target_obj_entry;
 
-	Obj_Entry target_obj_entry; 
-	struct ptrace_io_desc r_map_piod;
-	r_map_piod.piod_op = PIOD_READ_D;
-	r_map_piod.piod_addr = &target_obj_entry;
-	r_map_piod.piod_offs = __containerof(r_map, Obj_Entry, linkmap);
-	r_map_piod.piod_len = sizeof(Obj_Entry);
+    struct compart_data_list *comparts_head = NULL;
 
-	int r_map_retno = ptrace(PT_IO, pid, (caddr_t)&r_map_piod, 0);
+    while (r_map != NULL) {
 
-	if (r_map_retno == -1) {
-		err(1, "ptrace(PT_IO) failed to scan process %d at %p", pid, debug_piod.piod_offs);
-	}
+	Obj_Entry entry;
+	void *linkmap_addr = __containerof(r_map, Obj_Entry, linkmap);
+	piod_read(pid, PIOD_READ_D, linkmap_addr, &entry, sizeof(Obj_Entry));
+	debug_print(INFO, "remote_next_entry: %p local_next_entry: %p\n", linkmap_addr, entry);
 
-	debug_print(INFO, "target_obj_entry: %p piod_offs: %p piod_len: %zu\n", target_obj_entry, r_map_piod.piod_offs, r_map_piod.piod_len);
+	char *path = calloc(sizeof(char), 100);
+	piod_read(pid, PIOD_READ_D, (void*)entry.linkmap.l_name, path, sizeof(char)*100);
+	debug_print(INFO, "remote_linkmap_name: %p path: %s compart_id: %d\n", entry.linkmap.l_name, path, entry.compart_id);
 
-	// target_link_map is a linked list, we need to traverse the entries by following l_next and look up the 
-	// Obj_Entry data in the target process for each l_addr
-	// We can now fill in the compart data structure to return.
-	
-	Obj_Entry entry = target_obj_entry;
-	struct compart_data_list *comparts_head = NULL;
+	compart_data_from_linkmap data;
+	data.id = entry.compart_id;
+	data.path = path;
 
-	while (entry.linkmap.l_next != NULL) {
-
-		struct ptrace_io_desc name_piod;
-		char *path = calloc(sizeof(char), 100);
-		name_piod.piod_op = PIOD_READ_D;
-		name_piod.piod_addr = path;
-		name_piod.piod_offs = entry.linkmap.l_name;
-		name_piod.piod_len = sizeof(char)*100;
-
-		int retno = ptrace(PT_IO, pid, (caddr_t)&name_piod, 0);
-	
-		int compart_id = entry.compart_id;
+	struct compart_data_list *comparts_entry;
+	comparts_entry = (struct compart_data_list*)malloc(sizeof(struct compart_data_list));
+	comparts_entry->data = data;
+	comparts_entry->next = comparts_head;
+	comparts_head = comparts_entry;
 		
-		// Ready to move to the next link_map
-		Obj_Entry *next_entry = entry.linkmap.l_next;
-		struct ptrace_io_desc next_piod;
-		next_piod.piod_op = PIOD_READ_D;
-		next_piod.piod_addr = &entry;
-		next_piod.piod_offs = __containerof(next_entry, Obj_Entry, linkmap);
-		next_piod.piod_len = sizeof(Obj_Entry);
+        // Ready to move to the next link_map
+	r_map = entry.linkmap.l_next;
+    }
 
-		retno = ptrace(PT_IO, pid, (caddr_t)&next_piod, 0);
-		
-		debug_print(INFO, "entry: %p path: %s compart_id:%d\n", entry, path, compart_id);
+    ptrace_detach(pid);
+    free(r_map);
+
+    return comparts_head;
+}
+
+/* scan_r_comparts
+ * Using the r_comparts array exposed via r_debug, we can obtain the list of 
+ * compartments names and their ids.
+ */
+char **scan_r_comparts(int pid, struct r_debug target_debug)
+{
+    ptrace_attach(pid);
+
+    // This is extracting the compartments data from 
+    // ((struct compart *)r_debug->r_comparts)[r_debug->r_comparts_size]
+
+    int comparts_size = target_debug.r_comparts_size;
+    void *comparts = target_debug.r_comparts;
+
+    // The entry size can be obtained from _compart_size which is a global extern variable,
+    // it can be queried from ELF syms. During the ELF syms we can extract this value and store
+    // it to a local variable or it can be queried from the elf_sym sqlite table.
+    int comparts_entry_size = 128;
+    char **compart_names = calloc(comparts_entry_size*sizeof(char), comparts_size);
+
+    for (int i=0; i<comparts_size; i++) {
+	compart_t *comparts_entry;
+	piod_read(pid, PIOD_READ_D, comparts, &comparts_entry, sizeof(void*));
+	debug_print(INFO, "remote_comparts: %p local_comparts_entry: %p\n", comparts, comparts_entry);
 	
-		compart_data_t data;
-		data.path = path;
-		data.id = compart_id;
+	comparts = comparts + sizeof(compart_t);
 
-		struct compart_data_list *comparts;
-		comparts = (struct compart_data_list*)malloc(sizeof(struct compart_data_list));
-		comparts->data = data;
-		comparts->next = comparts_head;
-		comparts_head = comparts;
-		
-		free(next_entry);
-	}
+	char *name = calloc(sizeof(char), 50);
+	piod_read(pid, PIOD_READ_D, comparts_entry, name, sizeof(char)*50);
+	debug_print(INFO, "remote_comparts_entry: %p obtained compartment name: %s\n", comparts_entry, name);
+	
+	compart_names[i] = name;
+    }
 
-	ptrace_detach(pid);
-	free(target_phdr);
-	free(target_dyn);
-	free(dyn);
-	free(debug);
-	free(r_map);
-
-	if (auxv != NULL) {
-		procstat_freeauxv(psp, auxv);
-	}
-	return comparts_head;
+    ptrace_detach(pid);
+    return compart_names;
 }
 

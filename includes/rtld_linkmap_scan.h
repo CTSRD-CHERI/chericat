@@ -33,18 +33,29 @@
 #define RTLD_LINKMAP_SCAN_H_
 
 #include <sqlite3.h>
+#include <sys/link_elf.h>
 
-typedef struct struct_compart_data_t {
+typedef struct struct_compart_data_from_c18n {
+    int id;
+    int names_array_size;
+    char **names_array;
+} compart_data_from_c18n;
+
+typedef struct struct_compart_data_from_linkmap {
 	int id;
 	char *path;
-} compart_data_t;
+} compart_data_from_linkmap;
 
 struct compart_data_list {
-	compart_data_t data;
+	compart_data_from_linkmap data;
 	struct compart_data_list *next;
 };
 
+//typedef struct r_debug r_debug;
+
+struct r_debug get_r_debug(int pid, struct procstat *psp, struct kinfo_proc *kipp);
 void getprocs_with_procstat_sysctl(sqlite3 *db, char* arg_pid);
-struct compart_data_list* scan_rtld_linkmap(int pid, struct procstat *psp, struct kinfo_proc *kipp);
+struct compart_data_list* scan_rtld_linkmap(int pid, struct r_debug target_debug);
+char **scan_r_comparts(int pid, struct r_debug target_debug);
 
 #endif //RTLD_LINKMAP_SCAN_H_

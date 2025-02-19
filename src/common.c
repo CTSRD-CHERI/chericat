@@ -30,9 +30,11 @@
  * SUCH DAMAGE.
  */
 
+#include <err.h>
 #include "common.h"
 #include "stdio.h"
 #include "stdarg.h"
+#include <sys/ptrace.h>
 
 int print_level;
 
@@ -50,5 +52,25 @@ void debug_print(int level, const char *fmt, ...)
 		vfprintf(stdout, fmt, argptr);
 		va_end(argptr);
 	}
+}
+
+
+void piod_read(int pid, int op, void *remote, void *local, size_t len)
+{
+    struct ptrace_io_desc piod;
+    piod.piod_op = op;
+    piod.piod_offs = remote; 
+    piod.piod_addr = local;
+    piod.piod_len = len;
+
+    printf("remote: %#p local: %#p\n", remote, local);
+
+    int retno = ptrace(PT_IO, pid, (caddr_t)&piod, 0);
+    if (retno == -1) {
+	errx(1, "ptrace(PT_IO) failed to scan process %d at remote address %p", pid, remote);
+    }
+    if (piod.piod_len != len) {
+	errx(1, "ptrace(PT_IO) short read: %zu vs %zu", piod.piod_len, len);
+    }
 }
 		
