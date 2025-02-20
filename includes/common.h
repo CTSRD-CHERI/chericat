@@ -45,6 +45,5 @@
 
 void set_print_level(int level);
 void debug_print(int level, const char *fmt, ...);
-void piod_read(int pid, int op, void *remote, void *local, size_t len);
 
 #endif //COMMON_H_

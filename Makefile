@@ -5,6 +5,7 @@ DEPS=./includes
 CC?=cc
 CFLAGS+=-g -O0
 CFLAGS+=-Wall -Wcheri
+CFLAGS+=-DIN_RTLD -DCHERI_LIB_C18N -DRTLD_SANDBOX
 
 SRC_BASE?=/usr/src
 ARCH+=aarch64

@@ -29,9 +29,6 @@
  * SUCH DAMAGE.
  */
 
-#define RTLD_SANDBOX
-#define IN_RTLD
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -56,7 +53,6 @@
 #include "common.h"
 #include "ptrace_utils.h"
 #include "rtld_linkmap_scan.h"
-//#include <sys/link_elf.h>
 
 /* Copied from rtld-elf/rtld_c18n.c */
 typedef ssize_t string_handle;
@@ -204,13 +200,6 @@ struct r_debug get_r_debug(int pid, struct procstat *psp, struct kinfo_proc *kip
     // address in the target process. This data contains the rtld link_map 
     // we are looking for.
 
-#ifndef IN_RTLD
-#error "not in rtld"
-#endif
-#ifndef RTLD_SANDBOX
-#error "not in sandbox"
-#endif
-
     struct r_debug local_debug;
     printf("local_debug just been created: %#p and the size of struct is %lu\n", &local_debug, sizeof(struct r_debug));
 
@@ -254,10 +243,12 @@ struct compart_data_list* scan_rtld_linkmap(int pid, struct r_debug target_debug
 	Obj_Entry entry;
 	void *linkmap_addr = __containerof(r_map, Obj_Entry, linkmap);
 	piod_read(pid, PIOD_READ_D, linkmap_addr, &entry, sizeof(Obj_Entry));
-	debug_print(INFO, "remote_next_entry: %p local_next_entry: %p\n", linkmap_addr, entry);
+	debug_print(INFO, "remote_next_entry: %p local_next_entry: %#p\n", linkmap_addr, entry);
 
-	char *path = calloc(sizeof(char), 100);
-	piod_read(pid, PIOD_READ_D, (void*)entry.linkmap.l_name, path, sizeof(char)*100);
+	//char *path = calloc(sizeof(char), 50);
+	//piod_read(pid, PIOD_READ_D, entry.linkmap.l_name, path, sizeof(char)*50);
+	char *path = get_string(pid, (psaddr_t)entry.linkmap.l_name, 0);
+
 	debug_print(INFO, "remote_linkmap_name: %p path: %s compart_id: %d\n", entry.linkmap.l_name, path, entry.compart_id);
 
 	compart_data_from_linkmap data;

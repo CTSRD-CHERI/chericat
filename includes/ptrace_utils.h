@@ -33,9 +33,20 @@
 #ifndef PTRACE_UTILS_H_
 #define PTRACE_UTILS_H_
 
+#define	MAXSIZE		4096
+
+typedef uint64_t psaddr_t;	/* An address in the target process. */
+
+typedef struct lwpthrs {
+    int nlwps;
+    lwpid_t *lwps;
+} lwpthrs_t;
+
 void ptrace_attach(int pid);
 void ptrace_detach(int pid);
 void read_data(int pid, void *addr, void* vptr, int len);
-void read_lwps(char *arg_pid); 
+lwpthrs_t get_lwps_list(int pid); 
+void piod_read(int pid, int op, void *remote, void *local, size_t len);
+char *get_string(pid_t pid, psaddr_t addr, int max);
 
 #endif //PTRACE_UTILS_H_
