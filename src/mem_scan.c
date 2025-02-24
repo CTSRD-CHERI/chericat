@@ -111,6 +111,8 @@ void scan_mem(sqlite3 *db, int pid)
 	}
 
 	create_vm_cap_db(db);
+	create_comparts_table(db);
+
 	debug_print(TROUBLESHOOT, "Key Stage: Attach process %d using ptrace\n", pid);
 
 	char *insert_vm_query_values;
@@ -118,6 +120,14 @@ void scan_mem(sqlite3 *db, int pid)
 	struct r_debug obtained_r_debug;
 	obtained_r_debug = get_r_debug(pid, psp, kipp);
 	struct compart_data_list *scanned_comparts = scan_rtld_linkmap(pid, obtained_r_debug);
+	char **compart_name_list = scan_r_comparts(pid, obtained_r_debug);
+
+	for (int i=0; i<obtained_r_debug.r_comparts_size; i++) {	
+	    char *insert_comparts_table_query;
+	    asprintf(&insert_comparts_table_query, "INSERT INTO comparts(compart_id, compart_name) VALUES (%d, '%s');", i, compart_name_list[i]);
+	    sql_query_exec(db, insert_comparts_table_query, NULL, NULL);
+	    free(insert_comparts_table_query);
+	}
 
 	/* Maintain the list of paths that have already been had their ELF parsed, so that
 	 * we don't duplicate data or scan unnecessarily.

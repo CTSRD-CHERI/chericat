@@ -245,8 +245,6 @@ struct compart_data_list* scan_rtld_linkmap(int pid, struct r_debug target_debug
 	piod_read(pid, PIOD_READ_D, linkmap_addr, &entry, sizeof(Obj_Entry));
 	debug_print(INFO, "remote_next_entry: %p local_next_entry: %#p\n", linkmap_addr, entry);
 
-	//char *path = calloc(sizeof(char), 50);
-	//piod_read(pid, PIOD_READ_D, entry.linkmap.l_name, path, sizeof(char)*50);
 	char *path = get_string(pid, (psaddr_t)entry.linkmap.l_name, 0);
 
 	debug_print(INFO, "remote_linkmap_name: %p path: %s compart_id: %d\n", entry.linkmap.l_name, path, entry.compart_id);
@@ -298,8 +296,9 @@ char **scan_r_comparts(int pid, struct r_debug target_debug)
 	
 	comparts = comparts + sizeof(compart_t);
 
-	char *name = calloc(sizeof(char), 50);
-	piod_read(pid, PIOD_READ_D, comparts_entry, name, sizeof(char)*50);
+	//char *name = calloc(sizeof(char), 50);
+	//piod_read(pid, PIOD_READ_D, comparts_entry, name, sizeof(char)*50);
+	char *name = get_string(pid, (psaddr_t)comparts_entry, 0);
 	debug_print(INFO, "remote_comparts_entry: %p obtained compartment name: %s\n", comparts_entry, name);
 	
 	compart_names[i] = name;
