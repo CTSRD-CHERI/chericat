@@ -192,6 +192,28 @@ int create_elf_sym_db(sqlite3 *db)
 	return (0);
 }
 
+int create_comparts_table(sqlite3 *db)
+{
+    char *comparts_table =
+	"CREATE TABLE IF NOT EXISTS comparts("
+	"compart_id INTEGER NOT NULL, "
+	"compart_name VARCHAR NOT NULL);";
+
+    int rc;
+    char* messageError;
+    
+    rc = sqlite3_exec(db, comparts_table, NULL, 0, &messageError);
+
+    if (rc != SQLITE_OK) {
+	fprintf(stderr, "SQL error: %s\n", messageError);
+	sqlite3_free(messageError);
+	return(1);
+    } else {
+	debug_print(TROUBLESHOOT, "Database table comparts has been created successfully\n", NULL);
+    }
+    return(0);
+}
+
 int begin_transaction(sqlite3 *db)
 {
 	int rc;

@@ -30,6 +30,7 @@
  * SUCH DAMAGE.
  */
 
+#include <err.h>
 #include "common.h"
 #include "stdio.h"
 #include "stdarg.h"
@@ -51,4 +52,4 @@ void debug_print(int level, const char *fmt, ...)
 		va_end(argptr);
 	}
 }
-		
+

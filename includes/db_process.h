@@ -75,6 +75,7 @@ typedef struct sym_info_struct {
 char *get_dbname(); 
 int create_vm_cap_db(sqlite3 *db);
 int create_elf_sym_db(sqlite3 *db);
+int create_comparts_table(sqlite3 *db);
 int sql_query_exec(sqlite3 *db, char* query, int (*callback)(void*,int,char**,char**), void *data); 
 int begin_transaction(sqlite3 *db);
 int commit_transaction(sqlite3 *db);
