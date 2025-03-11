@@ -247,10 +247,10 @@ struct compart_data_list* scan_rtld_linkmap(int pid, struct r_debug target_debug
 
 	char *path = get_string(pid, (psaddr_t)entry.linkmap.l_name, 0);
 
-	debug_print(INFO, "remote_linkmap_name: %p path: %s compart_id: %d\n", entry.linkmap.l_name, path, entry.compart_id);
+	debug_print(INFO, "remote_linkmap_name: %p path: %s default_compart_id: %d\n", entry.linkmap.l_name, path, entry.default_compart_id);
 
 	compart_data_from_linkmap data;
-	data.id = entry.compart_id;
+	data.id = entry.default_compart_id;
 	data.path = path;
 
 	struct compart_data_list *comparts_entry;

@@ -1,5 +1,10 @@
 bin/
 src/*.o
+.depend*
+chericat
+chericat.1*
+chericat.full
+chericat.debug
 *.out
 *.db
 *.sql
