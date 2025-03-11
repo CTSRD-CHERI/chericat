@@ -111,11 +111,23 @@ void scan_mem(sqlite3 *db, int pid)
 	}
 
 	create_vm_cap_db(db);
+	create_comparts_table(db);
+
 	debug_print(TROUBLESHOOT, "Key Stage: Attach process %d using ptrace\n", pid);
 
 	char *insert_vm_query_values;
 
-	struct compart_data_list *scanned_comparts = scan_rtld_linkmap(pid, psp, kipp);
+	struct r_debug obtained_r_debug;
+	obtained_r_debug = get_r_debug(pid, psp, kipp);
+	struct compart_data_list *scanned_comparts = scan_rtld_linkmap(pid, obtained_r_debug);
+	char **compart_name_list = scan_r_comparts(pid, obtained_r_debug);
+
+	for (int i=0; i<obtained_r_debug.r_comparts_size; i++) {	
+	    char *insert_comparts_table_query;
+	    asprintf(&insert_comparts_table_query, "INSERT INTO comparts(compart_id, compart_name) VALUES (%d, '%s');", i, compart_name_list[i]);
+	    sql_query_exec(db, insert_comparts_table_query, NULL, NULL);
+	    free(insert_comparts_table_query);
+	}
 
 	/* Maintain the list of paths that have already been had their ELF parsed, so that
 	 * we don't duplicate data or scan unnecessarily.
@@ -216,19 +228,19 @@ void scan_mem(sqlite3 *db, int pid)
 			mmap_path = strdup(new_path);
 			free(new_path);
 		}
-		//struct compart_data_list *head = (struct compart_data_list*)malloc(sizeof(struct compart_data_list));
-		//memcpy(head, scanned_comparts, sizeof(struct compart_data_list));
 
 		struct compart_data_list *head = scanned_comparts;
 
 		int compart_id = -1;
 
 		while (head != NULL) {
-			compart_data_t data = head->data;
-			if (strncmp(data.path, mmap_path, strlen(data.path)) == 0) {
-				compart_id = data.id;
+			compart_data_from_linkmap compart_data = head->data;
+			if (strncmp(compart_data.path, mmap_path, strlen(compart_data.path)) == 0) {
+				compart_id = compart_data.id;
 				break;
 			}
+
+			/*
 			// Given that the rtld itself is not assigned a compartment, it is 
 			// assigned a special value of -2 so that it can be used to separate
 			// from the unknowns, which are given a compart_id of -1.
@@ -241,10 +253,11 @@ void scan_mem(sqlite3 *db, int pid)
 			// separating them by assigning it a special value of -3.
 			if (strcmp("Guard", mmap_path) == 0) {
 				compart_id = -3;
-			}
+			}*/
 			head = head->next;
 		}
 
+		/*
 		if (strcmp("Stack", mmap_path) == 0) {
 			// At the bottom of the stack, i.e. the top limit bound of the stack capability
 			// the offset -32 bytes are the struct stk_bottom data, which contains the 
@@ -253,27 +266,17 @@ void scan_mem(sqlite3 *db, int pid)
 			// in order to obtain the struct stk_bottom data
 			ptrace_attach(pid);
 
-			struct ptrace_io_desc piod;
 			//struct stk_bottom stack_compart_data = calloc(sizeof(struct stk_bottom), 1);
 			struct stk_bottom stack_compart_data;
-			piod.piod_op = PIOD_READ_D;
-			piod.piod_addr = &stack_compart_data;
-			piod.piod_offs = (void*)kivp->kve_end - 0x20;
-			piod.piod_len = sizeof(struct stk_bottom);
-
-			int retno = ptrace(PT_IO, pid, (caddr_t)&piod, 0);
-			if (retno == -1) {
-				err(1, "ptrace(PT_IO) failed to scan process %d at %p", pid, piod.piod_offs);
-			}
-			if (piod.piod_len != sizeof(struct stk_bottom)) {
-					err(1, "ptrace(PT_IO) short read: %d vs %zu", pid, sizeof(struct stk_bottom));
-			}
-			debug_print(INFO, "stack_compart_data: %p piod_offs: %p piod_len: %zu\n", stack_compart_data, piod.piod_offs, piod.piod_len);
-
+			void *stk_bottom_addr = (void*)(kivp->kve_end - 0x20);
+			piod_read(pid, PIOD_READ_D, stk_bottom_addr, &stack_compart_data, sizeof(struct stk_bottom));
+			debug_print(INFO, "remote_stack_bottom: %p local_stack_compart_data: %p compart_id for this stack: %d\n", stk_bottom_addr, stack_compart_data, stack_compart_data.compart_id); 
+				
 			compart_id = stack_compart_data.compart_id;
 			
 			ptrace_detach(pid);
 		}
+		*/
 
 		//free(head);
 
@@ -341,15 +344,11 @@ void scan_mem(sqlite3 *db, int pid)
 		char *query;
 		asprintf(&query,	
 			"UPDATE vm SET "
-			//"bss_addr=\"0x%lx\", "
-			//"bss_size=\"0x%lx\", "
 			"plt_addr=\"0x%lx\", "
 			"plt_size=\"0x%lx\", "
 			"got_addr=\"0x%lx\", "
 			"got_size=\"0x%lx\" " 
 			"WHERE mmap_path=\"%s\";",
-			//ssect[i].bss_addr, 
-			//ssect[i].bss_size, 
 			ssect[i].plt_addr, 
 			ssect[i].plt_size,
 			ssect[i].got_addr, 

@@ -1,4 +1,4 @@
-/*-
+/*
  * SPDX-License-Identifier: BSD-2-Clause
  *
  * Copyright (c) 2023 Jessica Man 
@@ -54,6 +54,7 @@
 
 #include "common.h"
 #include "db_process.h"
+#include "ptrace_utils.h"
 
 /*
  * ptrace_attach(int pid)
@@ -136,45 +137,112 @@ void read_data(int pid, void *addr, void *vptr, int len)
  * read_lwps
  * Using ptrace to read info of kernel threads
  */
-void read_lwps(int pid) 
+lwpthrs_t get_lwps_list(int pid) 
 {
-	ptrace_attach(pid);
-
 	int nlwps;
 	lwpid_t *lwps;
 	
 	nlwps = ptrace(PT_GETNUMLWPS, pid, NULL, 0);
 	if (nlwps == -1) {
-		fprintf(stderr, "Failed to get number of LWPs");
+		err(1, "Failed to get number of LWPs for process %d", pid);
 	}
 	assert(nlwps > 0);
 
 	lwps = calloc(nlwps, sizeof(*lwps));
 	nlwps = ptrace(PT_GETLWPLIST, pid, (caddr_t)lwps, nlwps);
 	if (nlwps == -1) {
-		fprintf(stderr, "Failed to get LWP list");
+		err(1, "Failed to get LWP list for process %d", pid);
 	}
 	assert(nlwps > 0);
+	debug_print(INFO, "Number of threads read: %d\n", nlwps);
 
-	struct ptrace_lwpinfo pl;
+	lwpthrs_t lwpthrs;
+	lwpthrs.nlwps = nlwps;
+	lwpthrs.lwps = lwps;
 
-	for (int i=0; i<nlwps; i++) {
-		if (ptrace(PT_LWPINFO, lwps[i], (caddr_t)&pl, sizeof(pl)) == -1) {
-			fprintf(stderr, "Failed to get LWP info");
-			exit(1);
-		}
-		printf("Read thread %d: %s\n",
-				pl.pl_lwpid, pl.pl_tdname);
-	}
-
-        int err = errno;
-
-        if (err != ENOENT) {
-		fprintf(stderr, "ptrace hasn't ended gracefully: %s %d\n", strerror(err), err);
-        }
-
-        ptrace_detach(pid);
-
-	free(lwps);
+	return lwpthrs;
 }
 
+struct ptrace_lwpinfo read_lwpinfo(int lwps_tid)
+{
+	struct ptrace_lwpinfo pl;
+
+	if (ptrace(PT_LWPINFO, lwps_tid, (caddr_t)&pl, sizeof(pl)) == -1) {
+		err(1, "Failed to get LWP info");
+	}
+	
+	debug_print(INFO, "Read thread %d: %s\n", pl.pl_lwpid, pl.pl_tdname);
+	return pl;
+}
+
+void piod_read(int pid, int op, void *remote, void *local, size_t len)
+{
+    struct ptrace_io_desc piod;
+    piod.piod_op = op;
+    piod.piod_offs = remote; 
+    piod.piod_addr = local;
+    piod.piod_len = len;
+
+    int retno = ptrace(PT_IO, pid, (caddr_t)&piod, 0);
+    if (retno == -1) {
+	errx(1, "ptrace(PT_IO) failed to scan process %d at remote address %p", pid, remote);
+    }
+    if (piod.piod_len != len) {
+	errx(1, "ptrace(PT_IO) short read: %zu vs %zu", piod.piod_len, len);
+    }
+}
+
+/*
+ * Copy a string from the process.  Note that it is
+ * expected to be a C string, but if max is set, it will
+ * only get that much.
+ */
+char *
+get_string(pid_t pid, psaddr_t addr, int max)
+{
+	struct ptrace_io_desc iorequest;
+	char *buf, *nbuf;
+	size_t offset, size, totalsize;
+
+	offset = 0;
+	if (max)
+		size = max + 1;
+	else {
+		/* Read up to the end of the current page. */
+		size = PAGE_SIZE - (addr % PAGE_SIZE);
+		if (size > MAXSIZE)
+			size = MAXSIZE;
+	}
+	totalsize = size;
+	buf = malloc(totalsize);
+	if (buf == NULL)
+		return (NULL);
+	for (;;) {
+		iorequest.piod_op = PIOD_READ_D;
+		iorequest.piod_offs = (void *)((uintptr_t)addr + offset);
+		iorequest.piod_addr = buf + offset;
+		iorequest.piod_len = size;
+		if (ptrace(PT_IO, pid, (caddr_t)&iorequest, 0) < 0) {
+			free(buf);
+			return (NULL);
+		}
+		if (memchr(buf + offset, '\0', size) != NULL)
+			return (buf);
+		offset += size;
+		if (totalsize < MAXSIZE && max == 0) {
+			size = MAXSIZE - totalsize;
+			if (size > PAGE_SIZE)
+				size = PAGE_SIZE;
+			nbuf = realloc(buf, totalsize + size);
+			if (nbuf == NULL) {
+				buf[totalsize - 1] = '\0';
+				return (buf);
+			}
+			buf = nbuf;
+			totalsize += size;
+		} else {
+			buf[totalsize - 1] = '\0';
+			return (buf);
+		}
+	}
+}
