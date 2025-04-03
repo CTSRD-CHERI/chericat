@@ -118,11 +118,11 @@ int get_tags(sqlite3 *db, int pid, u_long start, char *path)
         int retno = ptrace(PT_IO, pid, (caddr_t)&piod, 0);
 
 	// retno is 0 is the address has a cheri tag
-	// "start" is the address pointing to a page of addresses, each address is 64bytes 
-	// so there are 256 addresses on a 4k-byte page
+	// "start" is the address pointing to a page of addresses, each address is 64bits (8bytes)
+	// and there are 256 capabilities on a 4k-byte page
 	//
-	// pTrace scans the addresses per page, and stores their corresponding tag bit in the tagsbuf array,
-	// packing each 8 bits into a char, hence there are 32 chars in the tagsbuf char array.
+	// pTrace scans the capabilities per page, and stores their corresponding tag bit in the tagsbuf array,
+	// packing each 8 bits into a char, hence there are 32 bytes in the tagsbuf char array.
         if (retno == 0) {
 		char *insert_cap_query_values = NULL;
 
@@ -137,8 +137,8 @@ int get_tags(sqlite3 *db, int pid, u_long start, char *path)
 					// Checking each tag bit, if it corresponds to a capability (1) or not (0)
 					int bit = tags & 1;
 
-					// The corresponding address of each tag is offset by 8x16 from the 256 addresses we have reached 
-					// so far in this loop, because each tags in tagsbuf has 8 bits, each bit correspond to a 16 bytes address.
+					// The corresponding capabilty of each tag is offset by 8x16 from the 256 capabilities we have reached 
+					// so far in this loop, because each tags in tagsbuf has 8 bits, each bit correspond to a 16-byte capability.
 					// We need to calculate the offset from start, hence the i*8*16 to get the starting address in each 
 					// inner iteration.
 					u_long address = start + i*8*16 + j*16;

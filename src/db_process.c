@@ -119,8 +119,6 @@ int create_vm_cap_db(sqlite3 *db)
 		"kve_protection INTEGER NOT NULL, "
 		"mmap_flags INTEGER NOT NULL, "
 		"vnode_type INTEGER NOT NULL, "
-		//"bss_addr VARCHAR, "
-		//"bss_size VARCHAR, "
 		"plt_addr VARCHAR, "
 		"plt_size VARCHAR, "
 		"got_addr VARCHAR, "
@@ -196,8 +194,13 @@ int create_comparts_table(sqlite3 *db)
 {
     char *comparts_table =
 	"CREATE TABLE IF NOT EXISTS comparts("
-	"compart_id INTEGER NOT NULL, "
-	"compart_name VARCHAR NOT NULL);";
+	"compart_id INTEGER PRIMARY KEY, "
+	"compart_name VARCHAR, "
+        "library_path VARCHAR, "
+        "start_addr VARCHAR, "
+        "end_addr VARCHAR, "
+        "is_default INTEGER, "
+	"parent_id INTEGER);";
 
     int rc;
     char* messageError;
@@ -205,7 +208,7 @@ int create_comparts_table(sqlite3 *db)
     rc = sqlite3_exec(db, comparts_table, NULL, 0, &messageError);
 
     if (rc != SQLITE_OK) {
-	fprintf(stderr, "SQL error: %s\n", messageError);
+	fprintf(stderr, "SQL %s error: %s\n", comparts_table, messageError);
 	sqlite3_free(messageError);
 	return(1);
     } else {
@@ -251,7 +254,7 @@ int sql_query_exec(sqlite3 *db, char* query, int (*callback)(void*,int,char**,ch
 
 	rc = sqlite3_exec(db, query, callback, data, &messageError);
 	if (rc != SQLITE_OK) {
-		fprintf(stderr, "SQL error: %s (db: %s)\n", messageError, get_dbname());
+		fprintf(stderr, "SQL %s error: %s (db: %s)\n", query, messageError, get_dbname());
 		sqlite3_free(messageError);
 		return (1);
 	} else {
@@ -268,8 +271,9 @@ int sql_query_exec(sqlite3 *db, char* query, int (*callback)(void*,int,char**,ch
 vm_info *all_vm_info;   
 cap_info *all_cap_info;
 sym_info *all_sym_info;
+comp_info *all_comp_info;
 
-int all_vm_info_index, all_cap_info_index, all_sym_info_index;
+int all_vm_info_index, all_cap_info_index, all_sym_info_index, all_comp_info_index;
 
 /*
  * convert_str_to_int
@@ -280,6 +284,9 @@ int all_vm_info_index, all_cap_info_index, all_sym_info_index;
 static int convert_str_to_int(char *str, char *err_msg)
 {
 	char *pEnd;
+	if (str == NULL) {
+	    return 0;
+	}
 	int int_val = strtol(str, &pEnd, 10);
 	if (*pEnd != '\0') {
 		fprintf(stderr, "DB processing - Expected an integer, got: %s\n", str);
@@ -388,14 +395,34 @@ static int sym_info_query_callback(void *all_sym_info_ptr, int argc, char **argv
 	return 0;
 }
 
-static int vm_info_count_query_callback(void *count, int argc, char **argv, char **azColName)
+static int comp_info_query_callback(void *all_comp_info_ptr, int argc, char **argv, char **azColName)
+{
+    assert(argc == 7);
+
+    comp_info comp_info_captured;
+    int i=0;
+    comp_info_captured.compart_id   = convert_str_to_int(argv[i++], "compart_id type is invalid");
+    comp_info_captured.compart_name = _strdup_or_null(argv[i++]);
+    comp_info_captured.library_path = _strdup_or_null(argv[i++]);
+    comp_info_captured.start_addr   = _strdup_or_null(argv[i++]);
+    comp_info_captured.end_addr     = _strdup_or_null(argv[i++]);
+    comp_info_captured.is_default   = convert_str_to_int(argv[i++], "is_default type is invalid");
+    comp_info_captured.parent_id    = convert_str_to_int(argv[i++], "parent_id type is invalid");
+
+    comp_info **result_ptr = (comp_info **)all_comp_info_ptr;
+    (*result_ptr)[all_comp_info_index++] = comp_info_captured;
+
+    return 0;
+}
+
+static int info_count_query_callback(void *count, int argc, char **argv, char **azColName)
 {
 	assert(argc > 0);
 	char **result_ptr = (char **)count;
 	*result_ptr = strdup(argv[0]);
     	return 0;
 }
-
+/*
 static int cap_info_count_query_callback(void *count, int argc, char **argv, char **azColName)
 {
 	assert(argc > 0);
@@ -411,6 +438,7 @@ static int sym_info_count_query_callback(void *count, int argc, char **argv, cha
 	*result_ptr = strdup(argv[0]);
 	return 0;
 }
+*/
 
 int vm_info_count(sqlite3 *db) 
 {
@@ -420,7 +448,7 @@ int vm_info_count(sqlite3 *db)
         /* Obtain how many vm items from the database first, we can then use it to
          * determine the size of the struct array for holding all the vm entries */
         char *count;
-        sql_query_exec(db, "SELECT COUNT(*) FROM vm;", vm_info_count_query_callback, &count);
+        sql_query_exec(db, "SELECT COUNT(*) FROM vm;", info_count_query_callback, &count);
 	int result_count = convert_str_to_int(count, "Query to get count from vm returned an invalid value");
 	free(count);
 	return result_count;
@@ -433,7 +461,7 @@ int cap_info_count(sqlite3 *db)
         /* Obtain how many vm items from the database first, we can then use it to
          * determine the size of the struct array for holding all the vm entries */
         char *count;
-	sql_query_exec(db, "SELECT COUNT(*) FROM cap_info;", cap_info_count_query_callback, &count);
+	sql_query_exec(db, "SELECT COUNT(*) FROM cap_info;", info_count_query_callback, &count);
 	int result_count = convert_str_to_int(count, "Query to get count from cap_info returned an invalid value");
 	free(count);
 	return result_count;
@@ -446,8 +474,21 @@ int sym_info_count(sqlite3 *db)
         /* Obtain how many vm items from the database first, we can then use it to
          * determine the size of the struct array for holding all the vm entries */
         char *count;
-	sql_query_exec(db, "SELECT COUNT(*) FROM elf_sym;", sym_info_count_query_callback, &count);
+	sql_query_exec(db, "SELECT COUNT(*) FROM elf_sym;", info_count_query_callback, &count);
 	int result_count = convert_str_to_int(count, "Query to get count from elf_sym returned an invalid value");
+	free(count);
+	return result_count;
+}
+
+int comp_info_count(sqlite3 *db)
+{
+	assert_db_table_exists(db, "comparts");
+
+        /* Obtain how many vm items from the database first, we can then use it to
+         * determine the size of the struct array for holding all the vm entries */
+        char *count;
+	sql_query_exec(db, "SELECT COUNT(*) FROM comparts;", info_count_query_callback, &count);
+	int result_count = convert_str_to_int(count, "Query to get count from comparts returned an invalid value");
 	free(count);
 	return result_count;
 }
@@ -462,7 +503,7 @@ int cap_info_for_lib_count(sqlite3 *db, char *lib)
 
 	char *query;
 	asprintf(&query, "SELECT COUNT(*) FROM cap_info WHERE cap_loc_path LIKE \"%%%s%%\";", lib);
-        sql_query_exec(db, query, cap_info_count_query_callback, &count);
+        sql_query_exec(db, query, info_count_query_callback, &count);
 	int result_count = convert_str_to_int(count, "Query to get count from cap_info returned an invalid value");
         free(query);
 	free(count);
@@ -529,6 +570,26 @@ int get_all_sym_info(sqlite3 *db, sym_info **all_sym_info_ptr)
 	}
 }
 
+int get_all_comp_info(sqlite3 *db, comp_info **all_comp_info_ptr)
+{
+	assert_db_table_exists(db, "comparts");
+
+	int comp_count = comp_info_count(db);
+        *all_comp_info_ptr = (comp_info *)calloc(comp_count, sizeof(comp_info));
+        assert (*all_comp_info_ptr != NULL);
+        
+        int rc = sql_query_exec(db, "SELECT * FROM comparts;", comp_info_query_callback, all_comp_info_ptr);
+	
+	// reset all_comp_info_index
+	all_comp_info_index = 0;
+
+	if (rc == 0) {
+		return comp_count;
+	} else {
+		return -1;
+	}
+}
+
 int get_cap_info_for_lib(sqlite3 *db, cap_info **cap_info_captured_ptr, char *lib)
 {
 	assert_db_table_exists(db, "cap_info");
@@ -568,6 +629,7 @@ void db_info_capture_test()
 	printf("vm_info_count obtained: %d\n", vm_info_count(db));
 	printf("cap_info_count obtained: %d\n", cap_info_count(db));
 	printf("sym_info_count obtained: %d\n", sym_info_count(db));
+	printf("comp_info_count obtained: %d\n", comp_info_count(db));
 
 	vm_info *vm_info_captured;
 	int vm_count = get_all_vm_info(db, &vm_info_captured);
@@ -601,6 +663,17 @@ void db_info_capture_test()
 		printf("     %s\n", sym_info_captured[i].source_path);
 		printf("     %s\n", sym_info_captured[i].sym_name);
 		printf("     %s\n", sym_info_captured[i].addr);
+	}
+
+	comp_info *comp_info_captured;
+	int comp_count = get_all_comp_info(db, &comp_info_captured);
+	assert(comp_count != -1);
+
+	for (int i=0; i<5; i++) {
+		printf("comp_info_captured[%d]:\n", i); 
+		printf("     %d\n", comp_info_captured[i].compart_id);
+		printf("     %s\n", comp_info_captured[i].compart_name);
+		printf("     %s\n", comp_info_captured[i].start_addr);
 	}
 }
 

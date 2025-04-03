@@ -1,11 +1,12 @@
 /*-
  * SPDX-License-Identifier: BSD-2-Clause
  *
- * Copyright (c) 2023 Capabilities Limited
+ * Copyright (c) 2023 Jessica Man 
  *
- * This software was developed by Capabilities Limited under Innovate UK
- * project 10027440, "Developing and Evaluating an Open-Source Desktop for Arm
- * Morello".
+ * This software was developed by the University of Cambridge Computer
+ * Laboratory (Department of Computer Science and Technology) as part of the
+ * CHERI for Hypervisors and Operating Systems (CHaOS) project, funded by
+ * EPSRC grant EP/V000292/1.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,37 +30,9 @@
  * SUCH DAMAGE.
  */
 
-#ifndef RTLD_LINKMAP_SCAN_H_
-#define RTLD_LINKMAP_SCAN_H_
+#ifndef COMP_CAPS_VIEW_H_
+#define COMP_CAPS_VIEW_H_
 
-#include <sqlite3.h>
-#include <stdbool.h>
+void comp_caps_view(sqlite3 *db);
 
-#include <sys/link_elf.h>
-#include <sys/param.h>
-#include <sys/queue.h>
-#include <sys/socket.h>
-#include <sys/sysctl.h>
-#include <libprocstat.h>
-
-typedef struct struct_compart_data_from_linkmap {
-    int id;
-    int names_array_size;
-    char **names_array;
-    char *path;
-    Elf_Addr start_addr;
-    Elf_Addr end_addr;
-    bool is_default;
-} compart_data_from_linkmap;
-
-typedef struct struct_compart_data_list {
-	compart_data_from_linkmap data;
-	struct struct_compart_data_list *next;
-} compart_data_list;
-
-struct r_debug get_r_debug(int pid, struct procstat *psp, struct kinfo_proc *kipp);
-void getprocs_with_procstat_sysctl(sqlite3 *db, int pid);
-compart_data_list *scan_rtld_linkmap(int pid, sqlite3 *db, struct r_debug target_debug);
-char **scan_r_comparts(int pid, sqlite3 *db, struct r_debug target_debug);
-
-#endif //RTLD_LINKMAP_SCAN_H_
+#endif //COMP_CAPS_VIEW_H_
