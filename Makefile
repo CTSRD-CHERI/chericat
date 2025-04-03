@@ -1,6 +1,7 @@
 PROG= chericat
 MAN=  chericat.1
-SRCS= src/cap_capture.c src/caps_syms_view.c src/chericat.c src/common.c src/db_process.c src/elf_utils.c src/mem_scan.c src/ptrace_utils.c src/rtld_linkmap_scan.c src/vm_caps_view.c
+.PATH: ${.CURDIR}/src
+SRCS= cap_capture.c caps_syms_view.c chericat.c common.c db_process.c elf_utils.c mem_scan.c ptrace_utils.c rtld_linkmap_scan.c vm_caps_view.c
 
 PREFIX?=     /usr/local
 SRC_BASE?=   /usr/src
