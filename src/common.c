@@ -34,6 +34,7 @@
 #include "common.h"
 #include "stdio.h"
 #include "stdarg.h"
+#include <string.h>
 
 int print_level;
 
@@ -51,5 +52,16 @@ void debug_print(int level, const char *fmt, ...)
 		vfprintf(stdout, fmt, argptr);
 		va_end(argptr);
 	}
+}
+
+void get_filename_from_path(char *path, char **filename) {
+        char slash = '/';
+        char *ptr = strrchr(path, slash);
+
+        if (ptr) {
+                *filename = strdup(ptr+1); //Move pointer one to the right to not include the '/' itself
+        } else {
+                *filename = strdup(path);
+        }
 }
 

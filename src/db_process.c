@@ -450,6 +450,8 @@ int vm_info_count(sqlite3 *db)
         char *count;
         sql_query_exec(db, "SELECT COUNT(*) FROM vm;", info_count_query_callback, &count);
 	int result_count = convert_str_to_int(count, "Query to get count from vm returned an invalid value");
+	debug_print(INFO, "vm_info_count_query returned %d\n", result_count);
+
 	free(count);
 	return result_count;
 }

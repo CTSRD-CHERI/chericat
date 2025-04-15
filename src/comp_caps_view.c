@@ -76,16 +76,16 @@ void comp_caps_view(sqlite3 *db)
 	}
 
 	int ptrwidth = sizeof(void *);
-	xo_emit("{T:/\n%6s %27s %9s %27s %10s %5s %5s %5s %8s %8s}\n",
-		"SRC_ID", "SRC_NAME", "DEST_ID", "DEST_NAME", "ro", "rw", "rx", "rwx", "TOTAL", "DENSITY");
+	xo_emit("{T:/\n%6s %44s %9s %44s %10s %5s %5s %5s %8s %8s}\n",
+		"COMP_ID", "CAPLOC_COMP_NAME", "COMP_ID", "CAPADDR_COMP_NAME", "ro", "rw", "rx", "rwx", "TOTAL", "DENSITY");
 		
 	xo_open_list("comp_cap_output");
 	for (int i=0; i<comp_count; i++) {
 		xo_open_instance("comp_cap_output");
 		xo_emit("{:src_compart_id/%6d}", comp_info_captured[i].compart_id);
-		xo_emit("{:src_compart_name/%28s}", comp_info_captured[i].compart_name);
+		xo_emit("{:src_compart_name/%45s}", comp_info_captured[i].compart_name);
 		xo_emit("{:dest_compart_id/%10d}", comp_info_captured[i].compart_id);
-		xo_emit("{:dest_compart_name/%28s}", comp_info_captured[i].compart_name);
+		xo_emit("{:dest_compart_name/%45s}", comp_info_captured[i].compart_name);
 		uintptr_t start_addr = 0;
 		if (comp_info_captured[i].start_addr != NULL) {
 		    start_addr = (uintptr_t)strtol(comp_info_captured[i].start_addr, NULL, 0);

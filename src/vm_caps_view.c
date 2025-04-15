@@ -42,18 +42,8 @@
 
 #include <libxo/xo.h>
 
+#include "common.h"
 #include "db_process.h"
-
-static void get_filename_from_path(char *path, char **filename) {
-        char slash = '/';
-        char *ptr = strrchr(path, slash);
-
-        if (ptr) {
-                *filename = strdup(ptr+1); //Move pointer one to the right to not include the '/' itself
-        } else {
-                *filename = strdup(path);
-        }
-}
 
 /*
  * vm_caps_view
@@ -91,7 +81,7 @@ void vm_caps_view(sqlite3 *db)
 		ptrwidth, "START", ptrwidth-1, "END", "PRT", "ro", "rw", "rx", "rwx", "TOTAL", "DENSITY", "FLAGS", "TP", "COMPART", "PATH");
 		
 	xo_open_list("vm_cap_output");
-	for (int i=1; i<vm_count; i++) {
+	for (int i=0; i<vm_count; i++) {
 		xo_open_instance("vm_cap_output");
 		xo_emit("{:mmap_start_addr/%*s}", ptrwidth, vm_info_captured[i].start_addr);
 		xo_emit("{:mmap_end_addr/%*s}", ptrwidth, vm_info_captured[i].end_addr);

@@ -42,7 +42,7 @@
 #include <sys/sysctl.h>
 #include <libprocstat.h>
 
-typedef struct struct_compart_data_from_linkmap {
+typedef struct struct_compart_data {
     int id;
     int names_array_size;
     char **names_array;
@@ -50,10 +50,10 @@ typedef struct struct_compart_data_from_linkmap {
     Elf_Addr start_addr;
     Elf_Addr end_addr;
     bool is_default;
-} compart_data_from_linkmap;
+} compart_data;
 
 typedef struct struct_compart_data_list {
-	compart_data_from_linkmap data;
+	compart_data data;
 	struct struct_compart_data_list *next;
 } compart_data_list;
 

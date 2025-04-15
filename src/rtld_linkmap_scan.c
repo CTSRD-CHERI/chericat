@@ -224,6 +224,9 @@ struct r_debug get_r_debug(int pid, struct procstat *psp, struct kinfo_proc *kip
     if (auxv != NULL) {
 	procstat_freeauxv(psp, auxv);
     }
+    
+    debug_print(INFO, "r_debug is at %p\n", local_debug);
+
     return local_debug;
 }
 
@@ -243,27 +246,33 @@ compart_data_list *scan_rtld_linkmap(int pid, sqlite3 *db, struct r_debug target
 	Obj_Entry entry;
 	void *linkmap_addr = __containerof(r_map, Obj_Entry, linkmap);
 	piod_read(pid, PIOD_READ_D, linkmap_addr, &entry, sizeof(Obj_Entry));
-	debug_print(INFO, "remote_next_entry: %p local_next_entry: %#p\n", linkmap_addr, entry);
+	debug_print(INFO, "remote_next_entry: %p local_next_entry: %#p mapbase: %p mapsize: %lu\n", linkmap_addr, entry, entry.mapbase, entry.mapsize);
 
 	char *path = get_string(pid, (psaddr_t)entry.linkmap.l_name, 0);
 
-	debug_print(INFO, "remote_linkmap_name: %p path: %s default_compart_id: %d\n", entry.linkmap.l_name, path, entry.default_compart_id);
+	char *path_name = (char*)malloc(sizeof(path));
+	get_filename_from_path(path, &path_name);			
+	debug_print(INFO, "remote_linkmap_name: %p path: %s default_compart_id: %d\n", entry.linkmap.l_name, path_name, entry.default_compart_id);
 
-	compart_data_from_linkmap data;
-	data.id = entry.default_compart_id;
-	data.path = path;
-	data.is_default = true;
+	compart_data default_data;
+	default_data.id = entry.default_compart_id;
+	default_data.path = path; //Need to store full path to match with mmap_path in VM table
+        default_data.start_addr = (Elf_Addr)entry.mapbase;
+        default_data.end_addr = (Elf_Addr)entry.mapbase + entry.mapsize;
+	default_data.is_default = true;
 
 	compart_data_list *comparts_entry;
 	comparts_entry = (compart_data_list*)malloc(sizeof(compart_data_list));
-	comparts_entry->data = data;
+	comparts_entry->data = default_data;
 	comparts_entry->next = comparts_head;
 	comparts_head = comparts_entry;
 
 	char *insert_default_compart_q;
-	asprintf(&insert_default_compart_q, "INSERT OR REPLACE INTO comparts(compart_id, library_path, is_default) VALUES (%d, \"%s\", %d);", data.id, data.path, data.is_default);
+	asprintf(&insert_default_compart_q, "INSERT OR REPLACE INTO comparts(compart_id, library_path, start_addr, end_addr, is_default) VALUES (%d, \"%s\", \"0x%lx\", \"0x%lx\", %d);", default_data.id, path_name, default_data.start_addr, default_data.end_addr, default_data.is_default);
+
 	sql_query_exec(db, insert_default_compart_q, NULL, NULL);
 	free(insert_default_compart_q);
+	free(path_name);
 	
 	// If there are sub-compartments, create them too and add them to the list
 	if (entry.ncomparts > 0) {
@@ -274,24 +283,12 @@ compart_data_list *scan_rtld_linkmap(int pid, sqlite3 *db, struct r_debug target
 		// Found a sub-compartment, construct an entry and then add to the list
 		piod_read(pid, PIOD_READ_D, subcompart_addr, &current_subcompart, sizeof(Compart_Entry));
 
-		char *compart_name = get_string(pid, (psaddr_t)current_subcompart.compart_name, 0);
-
-		compart_data_from_linkmap subcompart_data;
-                subcompart_data.id = current_subcompart.compart_id;
-		subcompart_data.start_addr = current_subcompart.start;
-                subcompart_data.end_addr = current_subcompart.end;
-                subcompart_data.is_default = false;
-
-		compart_data_list *subcompart_entry;
-		subcompart_entry = (compart_data_list*)malloc(sizeof(compart_data_list));
-		subcompart_entry->data = subcompart_data;
-		subcompart_entry->next = comparts_head;
-		comparts_head = subcompart_entry;
-
-		debug_print(INFO, "Found subcompartment with id %d and start_addr %lx\n", subcompart_data.id, subcompart_data.start_addr);
-
+		char *compart_full_name = get_string(pid, (psaddr_t)current_subcompart.compart_name, 0);
+		char *compart_name = (char*)malloc(sizeof(compart_full_name));
+		get_filename_from_path(compart_full_name, &compart_name);			
+		
 		char *insert_subcomparts_q;
-		asprintf(&insert_subcomparts_q, "INSERT OR REPLACE INTO comparts(compart_id, compart_name, start_addr, end_addr, is_default, parent_id) VALUES (%d, \"%s\", \"0x%lx\", \"0x%lx\", %d, %d);", current_subcompart.compart_id, compart_name, current_subcompart.start, current_subcompart.end, false, data.id);
+		asprintf(&insert_subcomparts_q, "INSERT OR REPLACE INTO comparts(compart_id, compart_name, start_addr, end_addr, is_default, parent_id) VALUES (%d, \"%s\", \"0x%lx\", \"0x%lx\", %d, %d);", current_subcompart.compart_id, compart_name, current_subcompart.start, current_subcompart.end, false, default_data.id);
 		sql_query_exec(db, insert_subcomparts_q, NULL, NULL);
 		free(insert_subcomparts_q);
 		free(compart_name);
@@ -326,29 +323,31 @@ char **scan_r_comparts(int pid, sqlite3 *db, struct r_debug target_debug)
     // The entry size can be obtained from _compart_size which is a global extern variable,
     // it can be queried from ELF syms. During the ELF syms we can extract this value and store
     // it to a local variable or it can be queried from the elf_sym sqlite table.
-    int comparts_entry_size = 128;
+    int comparts_entry_size = sizeof(compart_t);
     char **compart_names = calloc(comparts_entry_size*sizeof(char), comparts_size);
 
     for (int i=0; i<comparts_size; i++) {
-	compart_t *comparts_entry;
-	piod_read(pid, PIOD_READ_D, comparts, &comparts_entry, sizeof(void*));
-	debug_print(INFO, "remote_comparts: %p\n", comparts);
-	
+        compart_t comparts_entry;
+        piod_read(pid, PIOD_READ_D, comparts, &comparts_entry, sizeof(compart_t));
+        
 	comparts = comparts + sizeof(compart_t);
+	
+	char *compart_full_name = get_string(pid, (psaddr_t)comparts_entry.name, 0);
+        if (compart_full_name != NULL) {
+	    char *compart_name = (char*)malloc(sizeof(compart_full_name));
+	    get_filename_from_path(compart_full_name, &compart_name);			
 
-	char *name = get_string(pid, (psaddr_t)comparts_entry, 0);
-	debug_print(INFO, "i: %d remote_comparts_entry: %p obtained compartment name: %s\n", i, comparts_entry, name);
+	    debug_print(INFO, "i: %d remote_comparts_entry: %p obtained compartment name: %s\n", i, comparts_entry, compart_name);
 
-        if (name != NULL) {
 	    char *insert_comparts_db_table_q;
 	    asprintf(&insert_comparts_db_table_q, 
 		"UPDATE comparts SET "
 		"compart_name=\"%s\" "
-                "WHERE compart_id=%d;", name, i);
+                "WHERE compart_id=%d;", compart_name, i);
 	    sql_query_exec(db, insert_comparts_db_table_q, NULL, NULL);
 	    free(insert_comparts_db_table_q);
 	}
-	compart_names[i] = name;
+	compart_names[i] = compart_full_name;
     }
 
     ptrace_detach(pid);
