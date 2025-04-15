@@ -29,6 +29,12 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/param.h>
+#include <sys/queue.h>
+#include <sys/socket.h>
+#include <sys/sysctl.h>
+#include <sys/ptrace.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -41,14 +47,8 @@
 #include <unistd.h>
 #include <rtld.h>
 
-#include <sys/param.h>
-#include <sys/queue.h>
-#include <sys/socket.h>
-#include <sys/sysctl.h>
-
 #include <libxo/xo.h>
 #include <libprocstat.h>
-#include <sys/ptrace.h>
 
 #include "common.h"
 #include "db_process.h"

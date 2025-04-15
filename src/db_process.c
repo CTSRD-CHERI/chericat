@@ -30,6 +30,10 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/ptrace.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -37,10 +41,6 @@
 #include <errno.h>
 #include <string.h>
 #include <sqlite3.h>
-
-#include <sys/ptrace.h>
-#include <sys/types.h>
-#include <sys/wait.h>
 
 #include <cheri/cheric.h>
 

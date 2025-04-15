@@ -31,10 +31,11 @@
  */
 
 #include <err.h>
+#include <string.h>
+
 #include "common.h"
 #include "stdio.h"
 #include "stdarg.h"
-#include <string.h>
 
 int print_level;
 

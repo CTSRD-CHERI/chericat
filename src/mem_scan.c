@@ -30,6 +30,15 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/param.h>
+#include <sys/queue.h>
+#include <sys/socket.h>
+#include <sys/sysctl.h>
+#include <sys/ptrace.h>
+#include <sys/user.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -39,19 +48,9 @@
 #include <string.h>
 #include <sqlite3.h>
 #include <time.h>
-
-#include <sys/param.h>
-#include <sys/queue.h>
-#include <sys/socket.h>
-#include <sys/sysctl.h>
 #include <libprocstat.h>
 
 #include <libxo/xo.h>
-#include <sys/ptrace.h>
-#include <sys/user.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-
 #include <cheri/cheric.h>
 
 #include "mem_scan.h"
