@@ -210,8 +210,8 @@ get_string(pid_t pid, psaddr_t addr, int max)
 	else {
 		/* Read up to the end of the current page. */
 		size = PAGE_SIZE - (addr % PAGE_SIZE);
-		if (size > MAXSIZE)
-			size = MAXSIZE;
+		if (size > PTRACE_READ_STRING_MAXSIZE)
+			size = PTRACE_READ_STRING_MAXSIZE;
 	}
 	totalsize = size;
 	buf = malloc(totalsize);
@@ -229,8 +229,8 @@ get_string(pid_t pid, psaddr_t addr, int max)
 		if (memchr(buf + offset, '\0', size) != NULL)
 			return (buf);
 		offset += size;
-		if (totalsize < MAXSIZE && max == 0) {
-			size = MAXSIZE - totalsize;
+		if (totalsize < PTRACE_READ_STRING_MAXSIZE && max == 0) {
+			size = PTRACE_READ_STRING_MAXSIZE - totalsize;
 			if (size > PAGE_SIZE)
 				size = PAGE_SIZE;
 			nbuf = realloc(buf, totalsize + size);

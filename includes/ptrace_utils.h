@@ -33,7 +33,7 @@
 #ifndef PTRACE_UTILS_H_
 #define PTRACE_UTILS_H_
 
-#define	MAXSIZE		4096
+#define	PTRACE_READ_STRING_MAXSIZE 4096
 
 typedef uint64_t psaddr_t;	/* An address in the target process. */
 
