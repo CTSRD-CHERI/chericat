@@ -49,6 +49,7 @@
 #include "ptrace_utils.h"
 #include "rtld_linkmap_scan.h"
 #include "vm_caps_view.h"
+#include "comp_caps_view.h"
 
 sqlite3 *db = NULL;
 
@@ -209,7 +210,7 @@ int main(int argc, char **argv)
 	    xo_close_container("vm_view");
 	} else if (strcmp(argv[1], "comp") == 0) {
 	    xo_open_container("compart_view");
-	    // TODO: compart_caps_view(db);
+	    comp_caps_view(db);
 	    xo_close_container("compart_view");
 	}
     }

@@ -72,6 +72,16 @@ typedef struct sym_info_struct {
         char *addr; 
 } sym_info;
 
+typedef struct comp_info_struct {
+    int compart_id;
+    char *compart_name;
+    char *library_path;
+    char *start_addr;
+    char *end_addr;
+    int is_default;
+    int parent_id;
+} comp_info;
+
 char *get_dbname(); 
 int create_vm_cap_db(sqlite3 *db);
 int create_elf_sym_db(sqlite3 *db);
@@ -83,11 +93,13 @@ int commit_transaction(sqlite3 *db);
 int vm_info_count(sqlite3 *db);
 int cap_info_count(sqlite3 *db);
 int sym_info_count(sqlite3 *db);
+int comp_info_count(sqlite3 *db);
 int cap_info_for_lib_count(sqlite3 *db, char *lib);
 
 int get_all_vm_info(sqlite3 *db, vm_info **all_vm_info);
 int get_all_cap_info(sqlite3 *db, cap_info **all_cap_info);
 int get_all_sym_info(sqlite3 *db, sym_info **all_sym_info);
+int get_all_comp_info(sqlite3 *db, comp_info **all_comp_info);
 int get_cap_info_for_lib(sqlite3 *db, cap_info **cap_info_captured_ptr, char *lib);
 
 #endif //DB_PROCESS_H_

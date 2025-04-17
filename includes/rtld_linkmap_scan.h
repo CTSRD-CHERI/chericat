@@ -33,29 +33,33 @@
 #define RTLD_LINKMAP_SCAN_H_
 
 #include <sqlite3.h>
-#include <sys/link_elf.h>
+#include <stdbool.h>
 
-typedef struct struct_compart_data_from_c18n {
+#include <sys/link_elf.h>
+#include <sys/param.h>
+#include <sys/queue.h>
+#include <sys/socket.h>
+#include <sys/sysctl.h>
+#include <libprocstat.h>
+
+typedef struct struct_compart_data {
     int id;
     int names_array_size;
     char **names_array;
-} compart_data_from_c18n;
+    char *path;
+    Elf_Addr start_addr;
+    Elf_Addr end_addr;
+    bool is_default;
+} compart_data;
 
-typedef struct struct_compart_data_from_linkmap {
-	int id;
-	char *path;
-} compart_data_from_linkmap;
-
-struct compart_data_list {
-	compart_data_from_linkmap data;
-	struct compart_data_list *next;
-};
-
-//typedef struct r_debug r_debug;
+typedef struct struct_compart_data_list {
+	compart_data data;
+	struct struct_compart_data_list *next;
+} compart_data_list;
 
 struct r_debug get_r_debug(int pid, struct procstat *psp, struct kinfo_proc *kipp);
-void getprocs_with_procstat_sysctl(sqlite3 *db, char* arg_pid);
-struct compart_data_list* scan_rtld_linkmap(int pid, struct r_debug target_debug);
-char **scan_r_comparts(int pid, struct r_debug target_debug);
+void getprocs_with_procstat_sysctl(sqlite3 *db, int pid);
+compart_data_list *scan_rtld_linkmap(int pid, sqlite3 *db, struct r_debug target_debug);
+char **scan_r_comparts(int pid, sqlite3 *db, struct r_debug target_debug);
 
 #endif //RTLD_LINKMAP_SCAN_H_

@@ -42,26 +42,25 @@
 
 #include <libxo/xo.h>
 
-#include "common.h"
 #include "db_process.h"
 
 /*
- * vm_caps_view
+ * comp_caps_view
  * SQLite callback routine to traverse results from sqlite_exec()
  * using:
  * 
- * 1. "SELECT * FROM vm;"
- * Results are formatted into: start_addr, end_addr, mmap_path
+ * 1. "SELECT * FROM comparts;"
+ * Results are formatted into: compart_id, compart_name, start_addr, end_addr
  *
  * 2. "SELECT * FROM cap_info WHERE cap_loc_addr >= start_addr AND cap_loc_addr <= end_addr;"
- * Results are added: no_of_caps(%), no_of_ro_caps, no_of_rw_caps, no_of_x_caps
+ * Results are added: no_of_caps(%), no_of_ro_caps, no_of_rw_caps, no_of_rx_caps, no_of_rwx_caps
  * 
  */
-void vm_caps_view(sqlite3 *db) 
+void comp_caps_view(sqlite3 *db) 
 {
-	vm_info *vm_info_captured;
-	int vm_count = get_all_vm_info(db, &vm_info_captured);
-	assert(vm_count != -1);
+	comp_info *comp_info_captured;
+	int comp_count = get_all_comp_info(db, &comp_info_captured);
+	assert(comp_count != -1);
 
 	cap_info *cap_info_captured;
 	int cap_count = get_all_cap_info(db, &cap_info_captured);
@@ -77,29 +76,25 @@ void vm_caps_view(sqlite3 *db)
 	}
 
 	int ptrwidth = sizeof(void *);
-	xo_emit("{T:/\n%*s %*s %6s %5s %5s %5s %5s %8s %8s %-5s %-2s %5s %-s}\n",
-		ptrwidth, "START", ptrwidth-1, "END", "PRT", "ro", "rw", "rx", "rwx", "TOTAL", "DENSITY", "FLAGS", "TP", "COMPART", "PATH");
+	xo_emit("{T:/\n%6s %44s %9s %44s %10s %5s %5s %5s %8s %8s}\n",
+		"COMP_ID", "CAPLOC_COMP_NAME", "COMP_ID", "CAPADDR_COMP_NAME", "ro", "rw", "rx", "rwx", "TOTAL", "DENSITY");
 		
-	xo_open_list("vm_cap_output");
-	for (int i=0; i<vm_count; i++) {
-		xo_open_instance("vm_cap_output");
-		xo_emit("{:mmap_start_addr/%*s}", ptrwidth, vm_info_captured[i].start_addr);
-		xo_emit("{:mmap_end_addr/%*s}", ptrwidth, vm_info_captured[i].end_addr);
-			
-		xo_emit("{:read/%3s}", vm_info_captured[i].kve_protection & KVME_PROT_READ ?
-			"r" : "-");
-		xo_emit("{:write/%s}", vm_info_captured[i].kve_protection & KVME_PROT_WRITE ?
-			"w" : "-");
-		xo_emit("{:exec/%s}", vm_info_captured[i].kve_protection & KVME_PROT_EXEC ?
-			"x" : "-");
-		xo_emit("{:read_cap/%s}", vm_info_captured[i].kve_protection & KVME_PROT_READ_CAP ? 
-			"R" : "-");
-		xo_emit("{:write_cap/%s} ", vm_info_captured[i].kve_protection & KVME_PROT_WRITE_CAP ? 
-			"W" : "-");
+	xo_open_list("comp_cap_output");
+	for (int i=0; i<comp_count; i++) {
+		xo_open_instance("comp_cap_output");
+		xo_emit("{:src_compart_id/%6d}", comp_info_captured[i].compart_id);
+		xo_emit("{:src_compart_name/%45s}", comp_info_captured[i].compart_name);
+		xo_emit("{:dest_compart_id/%10d}", comp_info_captured[i].compart_id);
+		xo_emit("{:dest_compart_name/%45s}", comp_info_captured[i].compart_name);
+		uintptr_t start_addr = 0;
+		if (comp_info_captured[i].start_addr != NULL) {
+		    start_addr = (uintptr_t)strtol(comp_info_captured[i].start_addr, NULL, 0);
+	       	}
+		uintptr_t end_addr = 0;
+		if  (comp_info_captured[i].end_addr != NULL) {
+		    end_addr = (uintptr_t)strtol(comp_info_captured[i].end_addr, NULL, 0);
+		}
 
-		uintptr_t start_addr = (uintptr_t)strtol(vm_info_captured[i].start_addr, NULL, 0);
-	       	uintptr_t end_addr = (uintptr_t)strtol(vm_info_captured[i].end_addr, NULL, 0);
-		
 		int out_cap_count=0;
 		int ro_count=0;
 		int rw_count=0;
@@ -108,8 +103,12 @@ void vm_caps_view(sqlite3 *db)
 
 		for (int j=0; j<cap_count; j++) {
 			uintptr_t cap_loc_addr = (uintptr_t)strtol(cap_info_captured[j].cap_loc_addr, NULL, 0);
-			
-			if (cap_loc_addr >= start_addr && cap_loc_addr <= end_addr) {
+			uintptr_t cap_addr = (uintptr_t)strtol(cap_info_captured[j].cap_addr, NULL, 0);
+		
+			if (cap_loc_addr >= start_addr && 
+			    cap_loc_addr <= end_addr && 
+                            cap_addr >= start_addr && 
+                            cap_addr <= end_addr) {
 				out_cap_count++;
 				if (strchr(cap_info_captured[j].perms, 'r') != NULL &&
 					strchr(cap_info_captured[j].perms, 'w') == NULL &&
@@ -133,77 +132,19 @@ void vm_caps_view(sqlite3 *db)
 				}
 			}
 		}
-		xo_emit("{:ro_count/%5d} ", ro_count);
+		xo_emit("{:ro_count/%11d} ", ro_count);
 		xo_emit("{:rw_count/%5d} ", rw_count);
 		xo_emit("{:rx_count/%5d} ", rx_count);
 		xo_emit("{:rwx_count/%5d} ", rwx_count);
 		xo_emit("{:out_cap_count/%8d} ", out_cap_count);
 
-		xo_emit("{:out_cap_density/%8.2f%%} ", ((float)out_cap_count/cap_count)*100);
+		xo_emit("{:out_cap_density/%8.2f%%}\n", ((float)out_cap_count/cap_count)*100);
 			
-		xo_emit("{:copy_on_write/%-1s}", vm_info_captured[i].mmap_flags &
-		    	KVME_FLAG_COW ? "C" : "-");
-		xo_emit("{:need_copy/%-1s}", vm_info_captured[i].mmap_flags &
-		   	KVME_FLAG_NEEDS_COPY ? "N" : "-");
-		xo_emit("{:super_pages/%-1s}", vm_info_captured[i].mmap_flags &
-			KVME_FLAG_SUPER ? "S" : "-");
-		xo_emit("{:grows_down/%-1s}", vm_info_captured[i].mmap_flags &
-			KVME_FLAG_GROWS_UP ? "U" : vm_info_captured[i].mmap_flags &
-	    		KVME_FLAG_GROWS_DOWN ? "D" : "-");
-		xo_emit("{:wired/%-1s} ", vm_info_captured[i].mmap_flags &
-	    		KVME_FLAG_USER_WIRED ? "W" : "-");
-			
-		const char *str;	
-		switch (vm_info_captured[i].vnode_type) {
-		case KVME_TYPE_NONE:
-			str = "--";
-			break;
-		case KVME_TYPE_DEFAULT:
-			str = "df";
-			break;
-		case KVME_TYPE_VNODE:
-			str = "vn";
-			break;
-		case KVME_TYPE_SWAP:
-			str = "sw";
-			break;
-		case KVME_TYPE_DEVICE:
-			str = "dv";
-			break;
-		case KVME_TYPE_PHYS:
-			str = "ph";
-			break;
-		case KVME_TYPE_DEAD:
-			str = "dd";
-			break;
-		case KVME_TYPE_SG:
-			str = "sg";
-			break;
-		case KVME_TYPE_MGTDEVICE:
-			str = "md";
-			break;
-		case KVME_TYPE_GUARD:
-			str = "gd";
-			break;
-		case KVME_TYPE_UNKNOWN:
-		default:
-			str = "??";
-			break;
-		}
-		xo_emit("{:kve_type/%-2s} ", str);	
-			
-		xo_emit("{:compart_id/%7d} ", vm_info_captured[i].compart_id);
-
-		char *filename = (char*)malloc(sizeof(vm_info_captured[i].mmap_path));
-		get_filename_from_path(vm_info_captured[i].mmap_path, &filename);			
-		xo_emit("{:mmap_path/%s}\n", filename);
-		free(filename);
-
-		free(vm_info_captured[i].start_addr);
-		free(vm_info_captured[i].end_addr);
-		free(vm_info_captured[i].mmap_path);
+		free(comp_info_captured[i].start_addr);
+		free(comp_info_captured[i].end_addr);
+		free(comp_info_captured[i].compart_name);
 		
-		xo_close_instance("vm_cap_output");
+		xo_close_instance("comp_cap_output");
 	}
 	for (int k=0; k<cap_count; k++) {
 		free(cap_info_captured[k].cap_loc_addr);
@@ -213,8 +154,8 @@ void vm_caps_view(sqlite3 *db)
 		free(cap_info_captured[k].top);
 	}
 	
-	xo_close_list("vm_cap_output");
-	free(vm_info_captured);
+	xo_close_list("comp_cap_output");
+	free(comp_info_captured);
 	free(cap_info_captured);
 
 }

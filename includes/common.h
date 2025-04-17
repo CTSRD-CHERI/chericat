@@ -45,5 +45,6 @@
 
 void set_print_level(int level);
 void debug_print(int level, const char *fmt, ...);
+void get_filename_from_path(char *path, char **filename); 
 
 #endif //COMMON_H_

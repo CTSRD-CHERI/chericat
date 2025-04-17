@@ -30,39 +30,9 @@
  * SUCH DAMAGE.
  */
 
-#include <err.h>
-#include <string.h>
-#include <stdio.h>
-#include <stdarg.h>
+#ifndef COMP_CAPS_VIEW_H_
+#define COMP_CAPS_VIEW_H_
 
+void comp_caps_view(sqlite3 *db);
 
-#include "common.h"
-int print_level;
-
-void set_print_level(int level) {
-	print_level = level;
-}
-
-void format_string(char *fmt, va_list argptr, char *formatted_string);
-
-void debug_print(int level, const char *fmt, ...) 
-{
-	if (level <= print_level) {
-		va_list argptr;
-		va_start(argptr, fmt);
-		vfprintf(stdout, fmt, argptr);
-		va_end(argptr);
-	}
-}
-
-void get_filename_from_path(char *path, char **filename) {
-        char slash = '/';
-        char *ptr = strrchr(path, slash);
-
-        if (ptr) {
-                *filename = strdup(ptr+1); //Move pointer one to the right to not include the '/' itself
-        } else {
-                *filename = strdup(path);
-        }
-}
-
+#endif //COMP_CAPS_VIEW_H_

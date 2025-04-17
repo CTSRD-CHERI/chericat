@@ -30,6 +30,15 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/param.h>
+#include <sys/queue.h>
+#include <sys/socket.h>
+#include <sys/sysctl.h>
+#include <sys/ptrace.h>
+#include <sys/user.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -39,19 +48,9 @@
 #include <string.h>
 #include <sqlite3.h>
 #include <time.h>
-
-#include <sys/param.h>
-#include <sys/queue.h>
-#include <sys/socket.h>
-#include <sys/sysctl.h>
 #include <libprocstat.h>
 
 #include <libxo/xo.h>
-#include <sys/ptrace.h>
-#include <sys/user.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-
 #include <cheri/cheric.h>
 
 #include "mem_scan.h"
@@ -119,15 +118,8 @@ void scan_mem(sqlite3 *db, int pid)
 
 	struct r_debug obtained_r_debug;
 	obtained_r_debug = get_r_debug(pid, psp, kipp);
-	struct compart_data_list *scanned_comparts = scan_rtld_linkmap(pid, obtained_r_debug);
-	char **compart_name_list = scan_r_comparts(pid, obtained_r_debug);
-
-	for (int i=0; i<obtained_r_debug.r_comparts_size; i++) {	
-	    char *insert_comparts_table_query;
-	    asprintf(&insert_comparts_table_query, "INSERT INTO comparts(compart_id, compart_name) VALUES (%d, '%s');", i, compart_name_list[i]);
-	    sql_query_exec(db, insert_comparts_table_query, NULL, NULL);
-	    free(insert_comparts_table_query);
-	}
+	compart_data_list *scanned_comparts = scan_rtld_linkmap(pid, db, obtained_r_debug);
+	scan_r_comparts(pid, db, obtained_r_debug);
 
 	/* Maintain the list of paths that have already been had their ELF parsed, so that
 	 * we don't duplicate data or scan unnecessarily.
@@ -207,7 +199,7 @@ void scan_mem(sqlite3 *db, int pid)
 				} else if (kivp->kve_flags & KVME_FLAG_GROWS_DOWN) {
 					mmap_path = strdup("Stack");
 				} else {
-					mmap_path = strdup("unknown");
+					mmap_path = strdup("Heap(others)");
 				}
 			}
 		} else {
@@ -229,56 +221,18 @@ void scan_mem(sqlite3 *db, int pid)
 			free(new_path);
 		}
 
-		struct compart_data_list *head = scanned_comparts;
+		compart_data_list *comparts_head = scanned_comparts;
 
 		int compart_id = -1;
 
-		while (head != NULL) {
-			compart_data_from_linkmap compart_data = head->data;
-			if (strncmp(compart_data.path, mmap_path, strlen(compart_data.path)) == 0) {
-				compart_id = compart_data.id;
+		while (comparts_head != NULL) {
+			compart_data current_compart_data = comparts_head->data;
+			if ((current_compart_data.path != NULL) && strncmp(current_compart_data.path, mmap_path, strlen(current_compart_data.path)) == 0) {
+				compart_id = current_compart_data.id;
 				break;
 			}
-
-			/*
-			// Given that the rtld itself is not assigned a compartment, it is 
-			// assigned a special value of -2 so that it can be used to separate
-			// from the unknowns, which are given a compart_id of -1.
-			int is_substring = _is_substring_of("ld-elf", mmap_path);
-			if (is_substring != -1) {
-				compart_id = -2;
-				break;
-			}
-			// Guard pages have no compartmentalisational value in chericat, hence 
-			// separating them by assigning it a special value of -3.
-			if (strcmp("Guard", mmap_path) == 0) {
-				compart_id = -3;
-			}*/
-			head = head->next;
+			comparts_head = comparts_head->next;
 		}
-
-		/*
-		if (strcmp("Stack", mmap_path) == 0) {
-			// At the bottom of the stack, i.e. the top limit bound of the stack capability
-			// the offset -32 bytes are the struct stk_bottom data, which contains the 
-			// compart_id for the stack
-			// Therefore we need to use ptrace to scan for the address (kve_end - 0x20) 
-			// in order to obtain the struct stk_bottom data
-			ptrace_attach(pid);
-
-			//struct stk_bottom stack_compart_data = calloc(sizeof(struct stk_bottom), 1);
-			struct stk_bottom stack_compart_data;
-			void *stk_bottom_addr = (void*)(kivp->kve_end - 0x20);
-			piod_read(pid, PIOD_READ_D, stk_bottom_addr, &stack_compart_data, sizeof(struct stk_bottom));
-			debug_print(INFO, "remote_stack_bottom: %p local_stack_compart_data: %p compart_id for this stack: %d\n", stk_bottom_addr, stack_compart_data, stack_compart_data.compart_id); 
-				
-			compart_id = stack_compart_data.compart_id;
-			
-			ptrace_detach(pid);
-		}
-		*/
-
-		//free(head);
 
 		debug_print(INFO, "0x%016lx 0x%016lx %s %d %d %d %d\n", 
                         kivp->kve_start,
