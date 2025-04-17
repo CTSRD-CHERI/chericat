@@ -60,7 +60,7 @@ void get_capability(int pid, void* addr, int current_cap_count, char *path, char
         piod.piod_addr = capbuf;
         piod.piod_len = sizeof(capbuf);
 	
-        // Sending IO trace request and obtain the capability pointed to by the provided address
+        // Sending IO trace request and obtain the capability
 	int retno = ptrace(PT_IO, pid, (caddr_t)&piod, 0);
 
 	if (DEBUG) {
@@ -101,8 +101,8 @@ void get_capability(int pid, void* addr, int current_cap_count, char *path, char
 
 /* get_tags
  * By using the ptrace PIOD_READ_CHERI_TAGS API, this function scans each provided
- * address - u_long start - and find all the marked tags. It stores the found tags'
- * addressed to the vm_cap_info struct along with the capabilities info obtained. 
+ * capability - u_long start - and find all the marked tags. It stores the found tags'
+ * capabilities to the vm_cap_info struct. 
  */
 int get_tags(sqlite3 *db, int pid, u_long start, char *path)
 {
@@ -117,8 +117,8 @@ int get_tags(sqlite3 *db, int pid, u_long start, char *path)
 
         int retno = ptrace(PT_IO, pid, (caddr_t)&piod, 0);
 
-	// retno is 0 is the address has a cheri tag
-	// "start" is the address pointing to a page of addresses, each address is 64bits (8bytes)
+	// retno is 0 is the capability has a cheri tag
+	// "start" is the capability pointing to a page of capabilities, each capability is 64bits (8bytes)
 	// and there are 256 capabilities on a 4k-byte page
 	//
 	// pTrace scans the capabilities per page, and stores their corresponding tag bit in the tagsbuf array,
@@ -139,7 +139,7 @@ int get_tags(sqlite3 *db, int pid, u_long start, char *path)
 
 					// The corresponding capabilty of each tag is offset by 8x16 from the 256 capabilities we have reached 
 					// so far in this loop, because each tags in tagsbuf has 8 bits, each bit correspond to a 16-byte capability.
-					// We need to calculate the offset from start, hence the i*8*16 to get the starting address in each 
+					// We need to calculate the offset from start, hence the i*8*16 to get the starting capability in each 
 					// inner iteration.
 					u_long address = start + i*8*16 + j*16;
 					tags_addr[j] = (uintptr_t)address;

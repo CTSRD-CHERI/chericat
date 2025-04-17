@@ -32,11 +32,11 @@
 
 #include <err.h>
 #include <string.h>
+#include <stdio.h>
+#include <stdarg.h>
+
 
 #include "common.h"
-#include "stdio.h"
-#include "stdarg.h"
-
 int print_level;
 
 void set_print_level(int level) {
