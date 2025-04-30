@@ -81,18 +81,24 @@ void comp_caps_view(sqlite3 *db)
 		
 	xo_open_list("comp_cap_output");
 	for (int i=0; i<comp_count; i++) {
+	    uintptr_t src_start_addr = 0;
+	    if (comp_info_captured[i].start_addr != NULL) {
+		src_start_addr = (uintptr_t)strtol(comp_info_captured[i].start_addr, NULL, 0);
+	    }
+	    uintptr_t src_end_addr = 0;
+	    if  (comp_info_captured[i].end_addr != NULL) {
+		src_end_addr = (uintptr_t)strtol(comp_info_captured[i].end_addr, NULL, 0);
+	    }
+	    for (int k=0; k<comp_count; k++) {
 		xo_open_instance("comp_cap_output");
-		xo_emit("{:src_compart_id/%6d}", comp_info_captured[i].compart_id);
-		xo_emit("{:src_compart_name/%45s}", comp_info_captured[i].compart_name);
-		xo_emit("{:dest_compart_id/%10d}", comp_info_captured[i].compart_id);
-		xo_emit("{:dest_compart_name/%45s}", comp_info_captured[i].compart_name);
-		uintptr_t start_addr = 0;
-		if (comp_info_captured[i].start_addr != NULL) {
-		    start_addr = (uintptr_t)strtol(comp_info_captured[i].start_addr, NULL, 0);
-	       	}
-		uintptr_t end_addr = 0;
-		if  (comp_info_captured[i].end_addr != NULL) {
-		    end_addr = (uintptr_t)strtol(comp_info_captured[i].end_addr, NULL, 0);
+
+		uintptr_t dest_start_addr = 0;
+		if (comp_info_captured[k].start_addr != NULL) {
+		    dest_start_addr = (uintptr_t)strtol(comp_info_captured[k].start_addr, NULL, 0);
+		}
+		uintptr_t dest_end_addr = 0;
+		if  (comp_info_captured[k].end_addr != NULL) {
+		    dest_end_addr = (uintptr_t)strtol(comp_info_captured[k].end_addr, NULL, 0);
 		}
 
 		int out_cap_count=0;
@@ -102,49 +108,58 @@ void comp_caps_view(sqlite3 *db)
 		int rwx_count=0;
 
 		for (int j=0; j<cap_count; j++) {
-			uintptr_t cap_loc_addr = (uintptr_t)strtol(cap_info_captured[j].cap_loc_addr, NULL, 0);
-			uintptr_t cap_addr = (uintptr_t)strtol(cap_info_captured[j].cap_addr, NULL, 0);
+		    uintptr_t cap_loc_addr = (uintptr_t)strtol(cap_info_captured[j].cap_loc_addr, NULL, 0);
+		    uintptr_t cap_addr = (uintptr_t)strtol(cap_info_captured[j].cap_addr, NULL, 0);
 		
-			if (cap_loc_addr >= start_addr && 
-			    cap_loc_addr <= end_addr && 
-                            cap_addr >= start_addr && 
-                            cap_addr <= end_addr) {
-				out_cap_count++;
-				if (strchr(cap_info_captured[j].perms, 'r') != NULL &&
-					strchr(cap_info_captured[j].perms, 'w') == NULL &&
-					strchr(cap_info_captured[j].perms, 'x') == NULL) {
-					ro_count++;
-				}
-				if (strchr(cap_info_captured[j].perms, 'r') != NULL &&
-					strchr(cap_info_captured[j].perms, 'w') != NULL &&
-					strchr(cap_info_captured[j].perms, 'x') == NULL) {
-					rw_count++;
-				}
-				if (strchr(cap_info_captured[j].perms, 'r') != NULL &&
-					strchr(cap_info_captured[j].perms, 'x') != NULL &&
-					strchr(cap_info_captured[j].perms, 'w') == NULL) {
-					rx_count++;
-				}
-				if (strchr(cap_info_captured[j].perms, 'r') != NULL &&
-					strchr(cap_info_captured[j].perms, 'x') != NULL &&
-					strchr(cap_info_captured[j].perms, 'w') != NULL) {
-					rwx_count++;
-				}
+		    if (cap_loc_addr >= src_start_addr && 
+			cap_loc_addr <= src_end_addr && 
+			cap_addr >= dest_start_addr && 
+			cap_addr <= dest_end_addr) {
+			out_cap_count++;
+			if (strchr(cap_info_captured[j].perms, 'r') != NULL &&
+			    strchr(cap_info_captured[j].perms, 'w') == NULL &&
+			    strchr(cap_info_captured[j].perms, 'x') == NULL) {
+			    ro_count++;
 			}
+			if (strchr(cap_info_captured[j].perms, 'r') != NULL &&
+			    strchr(cap_info_captured[j].perms, 'w') != NULL &&
+			    strchr(cap_info_captured[j].perms, 'x') == NULL) {
+			    rw_count++;
+			}
+			if (strchr(cap_info_captured[j].perms, 'r') != NULL &&
+			    strchr(cap_info_captured[j].perms, 'x') != NULL &&
+			    strchr(cap_info_captured[j].perms, 'w') == NULL) {
+			    rx_count++;
+			}
+			if (strchr(cap_info_captured[j].perms, 'r') != NULL &&
+			    strchr(cap_info_captured[j].perms, 'x') != NULL &&
+			    strchr(cap_info_captured[j].perms, 'w') != NULL) {
+			    rwx_count++;
+			}
+		    }
 		}
-		xo_emit("{:ro_count/%11d} ", ro_count);
-		xo_emit("{:rw_count/%5d} ", rw_count);
-		xo_emit("{:rx_count/%5d} ", rx_count);
-		xo_emit("{:rwx_count/%5d} ", rwx_count);
-		xo_emit("{:out_cap_count/%8d} ", out_cap_count);
-
-		xo_emit("{:out_cap_density/%8.2f%%}\n", ((float)out_cap_count/cap_count)*100);
-			
-		free(comp_info_captured[i].start_addr);
-		free(comp_info_captured[i].end_addr);
-		free(comp_info_captured[i].compart_name);
+	   
+		if (out_cap_count != 0) {
+		    xo_emit("{:src_compart_id/%6d}", comp_info_captured[i].compart_id);
+		    xo_emit("{:src_compart_name/%45s}", comp_info_captured[i].compart_name);
 		
-		xo_close_instance("comp_cap_output");
+		    xo_emit("{:dest_compart_id/%10d}", comp_info_captured[k].compart_id);
+		    xo_emit("{:dest_compart_name/%45s}", comp_info_captured[k].compart_name);
+
+		    xo_emit("{:ro_count/%11d} ", ro_count);
+		    xo_emit("{:rw_count/%5d} ", rw_count);
+		    xo_emit("{:rx_count/%5d} ", rx_count);
+		    xo_emit("{:rwx_count/%5d} ", rwx_count);
+		    xo_emit("{:out_cap_count/%8d} ", out_cap_count);
+
+		    xo_emit("{:out_cap_density/%8.2f%%}\n", ((float)out_cap_count/cap_count)*100);
+		}
+	    }	
+	    free(comp_info_captured[i].start_addr);
+	    free(comp_info_captured[i].end_addr);
+	    free(comp_info_captured[i].compart_name);
+		
+	    xo_close_instance("comp_cap_output");
 	}
 	for (int k=0; k<cap_count; k++) {
 		free(cap_info_captured[k].cap_loc_addr);
