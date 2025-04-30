@@ -252,7 +252,6 @@ compart_data_list *scan_rtld_linkmap(int pid, sqlite3 *db, struct r_debug target
 
 	char *path_name = NULL;
 	get_filename_from_path(path, &path_name);			
-	debug_print(INFO, "remote_linkmap_name: %p path: %s default_compart_id: %d\n", entry.linkmap.l_name, path_name, entry.default_compart_id);
 
 	compart_data default_data;
 	default_data.id = entry.default_compart_id;
@@ -270,6 +269,7 @@ compart_data_list *scan_rtld_linkmap(int pid, sqlite3 *db, struct r_debug target
 	char *insert_default_compart_q;
 	asprintf(&insert_default_compart_q, "INSERT OR REPLACE INTO comparts(compart_id, library_path, start_addr, end_addr, is_default) VALUES (%d, \"%s\", \"0x%lx\", \"0x%lx\", %d);", default_data.id, path_name, default_data.start_addr, default_data.end_addr, default_data.is_default);
 
+	debug_print(INFO, "Add comparts entry: %s\n", insert_default_compart_q);
 	sql_query_exec(db, insert_default_compart_q, NULL, NULL);
 	free(insert_default_compart_q);
 	
@@ -285,6 +285,10 @@ compart_data_list *scan_rtld_linkmap(int pid, sqlite3 *db, struct r_debug target
 		char *compart_name = get_string(pid, (psaddr_t)current_subcompart.name, 0);
 		char *compart_full_name = NULL;
 		asprintf(&compart_full_name, "%s:%s", path_name, compart_name);
+		if (compart_full_name == NULL) {
+		    // skip
+		    break;
+		}
 		free(compart_name);
 		
 		char *insert_subcomparts_q;
