@@ -66,6 +66,13 @@ void comp_caps_view(sqlite3 *db)
 	int cap_count = get_all_cap_info(db, &cap_info_captured);
 	assert(cap_count != -1);
 
+	// Obj_Entry cannot initialise mapbase and mapsize for RTLD and therefore
+	// cannot rely purely on the comparts table to get the address ranges for RTLD.
+	// Instead, we query the database vm table specifically to get the addresses
+	rtld_addrs *rtld_addrs_captured;
+	int rtld_count = get_all_rtld_addrs(db, &rtld_addrs_captured);
+	assert(rtld_count != -1);
+
 	int dbname_len = strlen(get_dbname());
 	for (int l=0; l<dbname_len+4; l++) {	
 		xo_emit("{:/-}");
@@ -81,18 +88,38 @@ void comp_caps_view(sqlite3 *db)
 		
 	xo_open_list("comp_cap_output");
 	for (int i=0; i<comp_count; i++) {
-		xo_open_instance("comp_cap_output");
-		xo_emit("{:src_compart_id/%6d}", comp_info_captured[i].compart_id);
-		xo_emit("{:src_compart_name/%45s}", comp_info_captured[i].compart_name);
-		xo_emit("{:dest_compart_id/%10d}", comp_info_captured[i].compart_id);
-		xo_emit("{:dest_compart_name/%45s}", comp_info_captured[i].compart_name);
-		uintptr_t start_addr = 0;
+	    uintptr_t src_start_addr = 0;
+	    uintptr_t src_end_addr = 0;
+	    if (strcmp(comp_info_captured[i].compart_name, "[RTLD]") == 0) {
+		//src_start_addr would be the first address from the captured addresses
+		//src_end_addr would the last address from the captured addresses
+		src_start_addr = (uintptr_t)strtol(rtld_addrs_captured[0].start_addr, NULL, 0);
+		src_end_addr = (uintptr_t)strtol(rtld_addrs_captured[rtld_count-1].end_addr, NULL, 0);
+	    } else {
 		if (comp_info_captured[i].start_addr != NULL) {
-		    start_addr = (uintptr_t)strtol(comp_info_captured[i].start_addr, NULL, 0);
-	       	}
-		uintptr_t end_addr = 0;
+		    src_start_addr = (uintptr_t)strtol(comp_info_captured[i].start_addr, NULL, 0);
+		}
 		if  (comp_info_captured[i].end_addr != NULL) {
-		    end_addr = (uintptr_t)strtol(comp_info_captured[i].end_addr, NULL, 0);
+		    src_end_addr = (uintptr_t)strtol(comp_info_captured[i].end_addr, NULL, 0);
+		}
+	    }
+	    for (int k=0; k<comp_count; k++) {
+		xo_open_instance("comp_cap_output");
+
+		uintptr_t dest_start_addr = 0;
+		uintptr_t dest_end_addr = 0;
+		if (strcmp(comp_info_captured[k].compart_name, "[RTLD]") == 0) {
+		    //src_start_addr would be the first address from the captured addresses
+		    //src_end_addr would the last address from the captured addresses
+		    dest_start_addr = (uintptr_t)strtol(rtld_addrs_captured[0].start_addr, NULL, 0);
+		    dest_end_addr = (uintptr_t)strtol(rtld_addrs_captured[rtld_count-1].end_addr, NULL, 0);
+		} else {
+		    if (comp_info_captured[k].start_addr != NULL) {
+			dest_start_addr = (uintptr_t)strtol(comp_info_captured[k].start_addr, NULL, 0);
+		    }
+		    if  (comp_info_captured[k].end_addr != NULL) {
+			dest_end_addr = (uintptr_t)strtol(comp_info_captured[k].end_addr, NULL, 0);
+		    }
 		}
 
 		int out_cap_count=0;
@@ -102,49 +129,57 @@ void comp_caps_view(sqlite3 *db)
 		int rwx_count=0;
 
 		for (int j=0; j<cap_count; j++) {
-			uintptr_t cap_loc_addr = (uintptr_t)strtol(cap_info_captured[j].cap_loc_addr, NULL, 0);
-			uintptr_t cap_addr = (uintptr_t)strtol(cap_info_captured[j].cap_addr, NULL, 0);
+		    uintptr_t cap_loc_addr = (uintptr_t)strtol(cap_info_captured[j].cap_loc_addr, NULL, 0);
+		    uintptr_t cap_addr = (uintptr_t)strtol(cap_info_captured[j].cap_addr, NULL, 0);
 		
-			if (cap_loc_addr >= start_addr && 
-			    cap_loc_addr <= end_addr && 
-                            cap_addr >= start_addr && 
-                            cap_addr <= end_addr) {
-				out_cap_count++;
-				if (strchr(cap_info_captured[j].perms, 'r') != NULL &&
-					strchr(cap_info_captured[j].perms, 'w') == NULL &&
-					strchr(cap_info_captured[j].perms, 'x') == NULL) {
-					ro_count++;
-				}
-				if (strchr(cap_info_captured[j].perms, 'r') != NULL &&
-					strchr(cap_info_captured[j].perms, 'w') != NULL &&
-					strchr(cap_info_captured[j].perms, 'x') == NULL) {
-					rw_count++;
-				}
-				if (strchr(cap_info_captured[j].perms, 'r') != NULL &&
-					strchr(cap_info_captured[j].perms, 'x') != NULL &&
-					strchr(cap_info_captured[j].perms, 'w') == NULL) {
-					rx_count++;
-				}
-				if (strchr(cap_info_captured[j].perms, 'r') != NULL &&
-					strchr(cap_info_captured[j].perms, 'x') != NULL &&
-					strchr(cap_info_captured[j].perms, 'w') != NULL) {
-					rwx_count++;
-				}
+		    if (cap_loc_addr >= src_start_addr && 
+			cap_loc_addr <= src_end_addr && 
+			cap_addr >= dest_start_addr && 
+			cap_addr <= dest_end_addr) {
+			out_cap_count++;
+			if (strchr(cap_info_captured[j].perms, 'r') != NULL &&
+			    strchr(cap_info_captured[j].perms, 'w') == NULL &&
+			    strchr(cap_info_captured[j].perms, 'x') == NULL) {
+			    ro_count++;
 			}
+			if (strchr(cap_info_captured[j].perms, 'r') != NULL &&
+			    strchr(cap_info_captured[j].perms, 'w') != NULL &&
+			    strchr(cap_info_captured[j].perms, 'x') == NULL) {
+			    rw_count++;
+			}
+			if (strchr(cap_info_captured[j].perms, 'r') != NULL &&
+			    strchr(cap_info_captured[j].perms, 'x') != NULL &&
+			    strchr(cap_info_captured[j].perms, 'w') == NULL) {
+			    rx_count++;
+			}
+			if (strchr(cap_info_captured[j].perms, 'r') != NULL &&
+			    strchr(cap_info_captured[j].perms, 'x') != NULL &&
+			    strchr(cap_info_captured[j].perms, 'w') != NULL) {
+			    rwx_count++;
+			}
+		    }
 		}
-		xo_emit("{:ro_count/%11d} ", ro_count);
-		xo_emit("{:rw_count/%5d} ", rw_count);
-		xo_emit("{:rx_count/%5d} ", rx_count);
-		xo_emit("{:rwx_count/%5d} ", rwx_count);
-		xo_emit("{:out_cap_count/%8d} ", out_cap_count);
-
-		xo_emit("{:out_cap_density/%8.2f%%}\n", ((float)out_cap_count/cap_count)*100);
-			
-		free(comp_info_captured[i].start_addr);
-		free(comp_info_captured[i].end_addr);
-		free(comp_info_captured[i].compart_name);
+	   
+		if (out_cap_count != 0) {
+		    xo_emit("{:src_compart_id/%6d}", comp_info_captured[i].compart_id);
+		    xo_emit("{:src_compart_name/%45s}", comp_info_captured[i].compart_name);
 		
-		xo_close_instance("comp_cap_output");
+		    xo_emit("{:dest_compart_id/%10d}", comp_info_captured[k].compart_id);
+		    xo_emit("{:dest_compart_name/%45s}", comp_info_captured[k].compart_name);
+
+		    xo_emit("{:ro_count/%11d} ", ro_count);
+		    xo_emit("{:rw_count/%5d} ", rw_count);
+		    xo_emit("{:rx_count/%5d} ", rx_count);
+		    xo_emit("{:rwx_count/%5d} ", rwx_count);
+		    xo_emit("{:out_cap_count/%8d} ", out_cap_count);
+
+		    xo_emit("{:out_cap_density/%8.2f%%}\n", ((float)out_cap_count/cap_count)*100);
+		}
+	    }	
+	    free(comp_info_captured[i].start_addr);
+	    free(comp_info_captured[i].end_addr);
+	    free(comp_info_captured[i].compart_name);		
+	    xo_close_instance("comp_cap_output");
 	}
 	for (int k=0; k<cap_count; k++) {
 		free(cap_info_captured[k].cap_loc_addr);
@@ -153,10 +188,14 @@ void comp_caps_view(sqlite3 *db)
 		free(cap_info_captured[k].base);
 		free(cap_info_captured[k].top);
 	}
+	for (int r=0; r<rtld_count; r++) {
+	    free(rtld_addrs_captured[r].start_addr);
+	    free(rtld_addrs_captured[r].end_addr);
+	}
 	
 	xo_close_list("comp_cap_output");
 	free(comp_info_captured);
 	free(cap_info_captured);
-
+	free(rtld_addrs_captured);
 }
 

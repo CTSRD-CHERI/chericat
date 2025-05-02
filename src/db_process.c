@@ -272,8 +272,9 @@ vm_info *all_vm_info;
 cap_info *all_cap_info;
 sym_info *all_sym_info;
 comp_info *all_comp_info;
+rtld_addrs *all_rtld_addrs;
 
-int all_vm_info_index, all_cap_info_index, all_sym_info_index, all_comp_info_index;
+int all_vm_info_index, all_cap_info_index, all_sym_info_index, all_comp_info_index, all_rtld_addrs_index;
 
 /*
  * convert_str_to_int
@@ -347,6 +348,27 @@ static int vm_info_query_callback(void *all_vm_info_ptr, int argc, char **argv, 
 
         return 0;
 }
+
+/*
+ * rtld_addrs_query_callback
+ * SQLite callback routing to traveerse results from sqlite_exec()
+ * using: "SELECT start_addr,end_addr FROM vm WHERE mmap_path like '%ld-elf.so%';"
+ * Results are formatted into: start_addr, end_addr
+ * argc - number of columns, expected to be 2
+ * argv - pointer to the data that is stored in each column
+ * azColName - pointer to the column names
+ */
+static int rtld_addrs_query_callback(void *all_rtld_addrs_ptr, int argc, char **argv, char **azColName)
+{
+    rtld_addrs rtld_addrs_captured;
+    rtld_addrs_captured.start_addr = strdup(argv[0]);
+    rtld_addrs_captured.end_addr = strdup(argv[1]);
+
+    rtld_addrs **result_ptr = (rtld_addrs **)all_rtld_addrs_ptr;
+    (*result_ptr)[all_rtld_addrs_index++] = rtld_addrs_captured;    
+    return 0;
+}
+
 
 /*
  * cap_info_query_callback
@@ -512,6 +534,26 @@ int cap_info_for_lib_count(sqlite3 *db, char *lib)
         return result_count;
 }
 
+int rtld_addrs_count(sqlite3 *db)
+{     
+	assert_db_table_exists(db, "vm");
+
+        /* Obtain how many vm items from the database first, we can then use it to
+         * determine the size of the struct array for holding all the vm entries */
+        char *count;
+
+	char *query;
+	asprintf(&query, "SELECT COUNT(*) FROM vm WHERE mmap_path LIKE \"%%ld-elf.so%%\";");
+        sql_query_exec(db, query, info_count_query_callback, &count);
+	int result_count = convert_str_to_int(count, "Query to get count from vm to get rtld addresses returned an invalid value");
+
+	debug_print(INFO, "Obtained %d RTLD address ranges\n", result_count);
+
+        free(query);
+	free(count);
+        return result_count;
+}
+
 int get_all_vm_info(sqlite3 *db, vm_info **all_vm_info_ptr)
 {
 	assert_db_table_exists(db, "vm");
@@ -592,6 +634,26 @@ int get_all_comp_info(sqlite3 *db, comp_info **all_comp_info_ptr)
 	}
 }
 
+int get_all_rtld_addrs(sqlite3 *db, rtld_addrs **all_rtld_addrs_ptr)
+{
+    assert_db_table_exists(db, "vm");
+
+    int addrs_count = rtld_addrs_count(db);
+    *all_rtld_addrs_ptr = (rtld_addrs *)calloc(addrs_count, sizeof(rtld_addrs));
+    assert(*all_rtld_addrs_ptr != NULL);
+
+    int rc = sql_query_exec(db, "SELECT * FROM vm WHERE mmap_path like \"%%ld-elf.so%%\";", rtld_addrs_query_callback, all_rtld_addrs_ptr);
+
+    //reset all_rtld_addrs_index
+    all_rtld_addrs_index = 0;
+
+    if (rc == 0) {
+	return addrs_count;
+    } else {
+	return -1;
+    }
+}
+
 int get_cap_info_for_lib(sqlite3 *db, cap_info **cap_info_captured_ptr, char *lib)
 {
 	assert_db_table_exists(db, "cap_info");
@@ -620,7 +682,7 @@ void db_info_capture_test()
 	printf("Testing Testing\n");
 
 	sqlite3 *db;
-	dbname = strdup("/home/psjm3/chericat/trial.db");
+	dbname = strdup("/home/psjm3/chericat/dlopen.db");
 	
 	int rc = sqlite3_open(dbname, &db);
 	if (rc != SQLITE_OK) {
@@ -676,6 +738,16 @@ void db_info_capture_test()
 		printf("     %d\n", comp_info_captured[i].compart_id);
 		printf("     %s\n", comp_info_captured[i].compart_name);
 		printf("     %s\n", comp_info_captured[i].start_addr);
+	}
+
+	rtld_addrs *rtld_addrs_captured;
+	int rtld_addrs_count = get_all_rtld_addrs(db, &rtld_addrs_captured);
+	assert(rtld_addrs_count != -1);
+
+	for (int i=0; i<rtld_addrs_count; i++) {
+	    printf("rtld_addrs_captured[%d]:\n", i);
+	    printf("	%s\n", rtld_addrs_captured[i].start_addr);
+	    printf("	%s\n", rtld_addrs_captured[i].end_addr);
 	}
 }
 

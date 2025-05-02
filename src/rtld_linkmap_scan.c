@@ -252,7 +252,6 @@ compart_data_list *scan_rtld_linkmap(int pid, sqlite3 *db, struct r_debug target
 
 	char *path_name = (char*)malloc(sizeof(path));
 	get_filename_from_path(path, &path_name);			
-	debug_print(INFO, "remote_linkmap_name: %p path: %s default_compart_id: %d\n", entry.linkmap.l_name, path_name, entry.default_compart_id);
 
 	compart_data default_data;
 	default_data.id = entry.default_compart_id;
@@ -270,6 +269,7 @@ compart_data_list *scan_rtld_linkmap(int pid, sqlite3 *db, struct r_debug target
 	char *insert_default_compart_q;
 	asprintf(&insert_default_compart_q, "INSERT OR REPLACE INTO comparts(compart_id, library_path, start_addr, end_addr, is_default) VALUES (%d, \"%s\", \"0x%lx\", \"0x%lx\", %d);", default_data.id, path_name, default_data.start_addr, default_data.end_addr, default_data.is_default);
 
+	debug_print(INFO, "Add comparts entry: %s\n", insert_default_compart_q);
 	sql_query_exec(db, insert_default_compart_q, NULL, NULL);
 	free(insert_default_compart_q);
 	free(path_name);
@@ -283,12 +283,17 @@ compart_data_list *scan_rtld_linkmap(int pid, sqlite3 *db, struct r_debug target
 		// Found a sub-compartment, construct an entry and then add to the list
 		piod_read(pid, PIOD_READ_D, subcompart_addr, &current_subcompart, sizeof(Compart_Entry));
 
-		char *compart_full_name = get_string(pid, (psaddr_t)current_subcompart.compart_name, 0);
+		char *compart_full_name = get_string(pid, (psaddr_t)current_subcompart.name, 0);
+		if (compart_full_name == NULL) {
+		    // skip
+		    break;
+		}
 		char *compart_name = (char*)malloc(sizeof(compart_full_name));
 		get_filename_from_path(compart_full_name, &compart_name);			
 		
 		char *insert_subcomparts_q;
 		asprintf(&insert_subcomparts_q, "INSERT OR REPLACE INTO comparts(compart_id, compart_name, start_addr, end_addr, is_default, parent_id) VALUES (%d, \"%s\", \"0x%lx\", \"0x%lx\", %d, %d);", current_subcompart.compart_id, compart_name, current_subcompart.start, current_subcompart.end, false, default_data.id);
+		debug_print(INFO, "Add sub-comparts entry: %s\n", insert_default_compart_q);
 		sql_query_exec(db, insert_subcomparts_q, NULL, NULL);
 		free(insert_subcomparts_q);
 		free(compart_name);
