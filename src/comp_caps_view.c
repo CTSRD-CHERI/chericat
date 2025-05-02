@@ -66,6 +66,13 @@ void comp_caps_view(sqlite3 *db)
 	int cap_count = get_all_cap_info(db, &cap_info_captured);
 	assert(cap_count != -1);
 
+	// Obj_Entry cannot initialise mapbase and mapsize for RTLD and therefore
+	// cannot rely purely on the comparts table to get the address ranges for RTLD.
+	// Instead, we query the database vm table specifically to get the addresses
+	rtld_addrs *rtld_addrs_captured;
+	int rtld_count = get_all_rtld_addrs(db, &rtld_addrs_captured);
+	assert(rtld_count != -1);
+
 	int dbname_len = strlen(get_dbname());
 	for (int l=0; l<dbname_len+4; l++) {	
 		xo_emit("{:/-}");
@@ -82,23 +89,37 @@ void comp_caps_view(sqlite3 *db)
 	xo_open_list("comp_cap_output");
 	for (int i=0; i<comp_count; i++) {
 	    uintptr_t src_start_addr = 0;
-	    if (comp_info_captured[i].start_addr != NULL) {
-		src_start_addr = (uintptr_t)strtol(comp_info_captured[i].start_addr, NULL, 0);
-	    }
 	    uintptr_t src_end_addr = 0;
-	    if  (comp_info_captured[i].end_addr != NULL) {
-		src_end_addr = (uintptr_t)strtol(comp_info_captured[i].end_addr, NULL, 0);
+	    if (strcmp(comp_info_captured[i].compart_name, "[RTLD]") == 0) {
+		//src_start_addr would be the first address from the captured addresses
+		//src_end_addr would the last address from the captured addresses
+		src_start_addr = (uintptr_t)strtol(rtld_addrs_captured[0].start_addr, NULL, 0);
+		src_end_addr = (uintptr_t)strtol(rtld_addrs_captured[rtld_count-1].end_addr, NULL, 0);
+	    } else {
+		if (comp_info_captured[i].start_addr != NULL) {
+		    src_start_addr = (uintptr_t)strtol(comp_info_captured[i].start_addr, NULL, 0);
+		}
+		if  (comp_info_captured[i].end_addr != NULL) {
+		    src_end_addr = (uintptr_t)strtol(comp_info_captured[i].end_addr, NULL, 0);
+		}
 	    }
 	    for (int k=0; k<comp_count; k++) {
 		xo_open_instance("comp_cap_output");
 
 		uintptr_t dest_start_addr = 0;
-		if (comp_info_captured[k].start_addr != NULL) {
-		    dest_start_addr = (uintptr_t)strtol(comp_info_captured[k].start_addr, NULL, 0);
-		}
 		uintptr_t dest_end_addr = 0;
-		if  (comp_info_captured[k].end_addr != NULL) {
-		    dest_end_addr = (uintptr_t)strtol(comp_info_captured[k].end_addr, NULL, 0);
+		if (strcmp(comp_info_captured[k].compart_name, "[RTLD]") == 0) {
+		    //src_start_addr would be the first address from the captured addresses
+		    //src_end_addr would the last address from the captured addresses
+		    dest_start_addr = (uintptr_t)strtol(rtld_addrs_captured[0].start_addr, NULL, 0);
+		    dest_end_addr = (uintptr_t)strtol(rtld_addrs_captured[rtld_count-1].end_addr, NULL, 0);
+		} else {
+		    if (comp_info_captured[k].start_addr != NULL) {
+			dest_start_addr = (uintptr_t)strtol(comp_info_captured[k].start_addr, NULL, 0);
+		    }
+		    if  (comp_info_captured[k].end_addr != NULL) {
+			dest_end_addr = (uintptr_t)strtol(comp_info_captured[k].end_addr, NULL, 0);
+		    }
 		}
 
 		int out_cap_count=0;
@@ -157,8 +178,7 @@ void comp_caps_view(sqlite3 *db)
 	    }	
 	    free(comp_info_captured[i].start_addr);
 	    free(comp_info_captured[i].end_addr);
-	    free(comp_info_captured[i].compart_name);
-		
+	    free(comp_info_captured[i].compart_name);		
 	    xo_close_instance("comp_cap_output");
 	}
 	for (int k=0; k<cap_count; k++) {
@@ -168,10 +188,14 @@ void comp_caps_view(sqlite3 *db)
 		free(cap_info_captured[k].base);
 		free(cap_info_captured[k].top);
 	}
+	for (int r=0; r<rtld_count; r++) {
+	    free(rtld_addrs_captured[r].start_addr);
+	    free(rtld_addrs_captured[r].end_addr);
+	}
 	
 	xo_close_list("comp_cap_output");
 	free(comp_info_captured);
 	free(cap_info_captured);
-
+	free(rtld_addrs_captured);
 }
 
