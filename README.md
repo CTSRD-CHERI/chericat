@@ -1,11 +1,12 @@
-# chericat
 <p align="center">
 <img src="chericat.jpg" alt="chericat" width="150"/>
 </p>
 
-A Capability Analysis Tool for CHERI
+# Chericat - A Capability Analysis Tool for CHERI
 
 The program “chericat” is a standalone tool that runs on CheriBSD. It can be used by attaching to a running process to produce capability-related data, which is stored in a local SQL database. The data can then be queried to retrieve information regarding the capabilities created at that snapshot.
+
+## CLI
 
 When the -p option is used, chericat uses the procstat utility functions to take a snapshop of the running process with the provided <pid> and extract the mmap data. At the same time chericat obtains the ELF data using the ELF Toolchain library. The data is then written to either a SQLite database if a valid database name is provided via the -f option, or to memory just to output the data without storing permanently.
 
@@ -47,3 +48,6 @@ Options:
      -v Show virtual summary info of capabilities in the target process, arranged in mmap order
      -c Show capabilities with corresponding symbols located in the provided binary
 ```
+## Graph Visualisation
+
+Please refer to the python documentation regarding how to visualise the capability data: [python/README](python/README.md) 
