@@ -347,6 +347,7 @@ char **scan_r_comparts(int pid, sqlite3 *db, struct r_debug target_debug)
                 "WHERE compart_id=%d;", compart_name, i);
 	    sql_query_exec(db, insert_comparts_db_table_q, NULL, NULL);
 	    free(insert_comparts_db_table_q);
+	    free(compart_name);
 	}
 	compart_names[i] = compart_full_name;
     }
