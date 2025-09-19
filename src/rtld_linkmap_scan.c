@@ -175,7 +175,7 @@ struct r_debug get_r_debug(int pid, struct procstat *psp, struct kinfo_proc *kip
     debug_print(INFO, "remote_phdr: %p local_phdr: %p\n", phdr, target_phdr);
 
     // Scan the program header entries from read memory to find the PT_DYNAMIC section
-    void *dyn = malloc(sizeof(void*));
+    void *dyn = NULL;
     int dyn_size=0;
 	
     for (int i=0; i<phnum; i++) {
@@ -197,7 +197,7 @@ struct r_debug get_r_debug(int pid, struct procstat *psp, struct kinfo_proc *kip
     piod_read(pid, PIOD_READ_D, (dyn+elf_base), target_dyn, dyn_size);
     debug_print(INFO, "remote_dyn: %p local_dyn %p\n", dyn+elf_base, target_dyn);
 	
-    void *remote_debug = malloc(sizeof(void*));
+    void *remote_debug = NULL;
 
     for (int i=0; i<dyn_size; i++) {
 	if (target_dyn[i].d_tag == DT_DEBUG) {
@@ -250,7 +250,7 @@ compart_data_list *scan_rtld_linkmap(int pid, sqlite3 *db, struct r_debug target
 
 	char *path = get_string(pid, (psaddr_t)entry.linkmap.l_name, 0);
 
-	char *path_name = (char*)malloc(sizeof(path));
+	char *path_name = NULL;
 	get_filename_from_path(path, &path_name);			
 	debug_print(INFO, "remote_linkmap_name: %p path: %s default_compart_id: %d\n", entry.linkmap.l_name, path_name, entry.default_compart_id);
 
@@ -335,7 +335,7 @@ char **scan_r_comparts(int pid, sqlite3 *db, struct r_debug target_debug)
 	
 	char *compart_full_name = get_string(pid, (psaddr_t)comparts_entry.name, 0);
         if (compart_full_name != NULL) {
-	    char *compart_name = (char*)malloc(sizeof(compart_full_name));
+	    char *compart_name = NULL;
 	    get_filename_from_path(compart_full_name, &compart_name);			
 
 	    debug_print(INFO, "i: %d remote_comparts_entry: %p obtained compartment name: %s\n", i, comparts_entry, compart_name);
