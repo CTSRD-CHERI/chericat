@@ -192,6 +192,7 @@ void get_elf_info(sqlite3 *db, Elf *elfFile, char *source, u_long source_base, s
 		char *section_name;
 		if ((section_name = elf_strptr(elfFile, shstrndx, shdr.sh_name)) == NULL) {
 			fprintf(stderr, "elf_strptr() failed: %s\n", elf_errmsg(-1));
+			continue;
 		}
 
 		special_sections ssect_captured;
