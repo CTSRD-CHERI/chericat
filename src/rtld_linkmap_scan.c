@@ -272,7 +272,6 @@ compart_data_list *scan_rtld_linkmap(int pid, sqlite3 *db, struct r_debug target
 
 	sql_query_exec(db, insert_default_compart_q, NULL, NULL);
 	free(insert_default_compart_q);
-	free(path_name);
 	
 	// If there are sub-compartments, create them too and add them to the list
 	if (entry.ncomparts > 0) {
@@ -283,19 +282,21 @@ compart_data_list *scan_rtld_linkmap(int pid, sqlite3 *db, struct r_debug target
 		// Found a sub-compartment, construct an entry and then add to the list
 		piod_read(pid, PIOD_READ_D, subcompart_addr, &current_subcompart, sizeof(Compart_Entry));
 
-		char *compart_full_name = get_string(pid, (psaddr_t)current_subcompart.compart_name, 0);
-		char *compart_name = (char*)malloc(sizeof(compart_full_name));
-		get_filename_from_path(compart_full_name, &compart_name);			
+		char *compart_name = get_string(pid, (psaddr_t)current_subcompart.name, 0);
+		char *compart_full_name = NULL;
+		asprintf(&compart_full_name, "%s:%s", path_name, compart_name);
+		free(compart_name);
 		
 		char *insert_subcomparts_q;
-		asprintf(&insert_subcomparts_q, "INSERT OR REPLACE INTO comparts(compart_id, compart_name, start_addr, end_addr, is_default, parent_id) VALUES (%d, \"%s\", \"0x%lx\", \"0x%lx\", %d, %d);", current_subcompart.compart_id, compart_name, current_subcompart.start, current_subcompart.end, false, default_data.id);
+		asprintf(&insert_subcomparts_q, "INSERT OR REPLACE INTO comparts(compart_id, compart_name, start_addr, end_addr, is_default, parent_id) VALUES (%d, \"%s\", \"0x%lx\", \"0x%lx\", %d, %d);", current_subcompart.compart_id, compart_full_name, current_subcompart.start, current_subcompart.end, false, default_data.id);
 		sql_query_exec(db, insert_subcomparts_q, NULL, NULL);
 		free(insert_subcomparts_q);
-		free(compart_name);
+		free(compart_full_name);
 
 		subcompart_addr = subcompart_addr + (sizeof(Compart_Entry));
 	    }
 	}
+	free(path_name);
         // Ready to move to the next link_map
 	r_map = entry.linkmap.l_next;
     }
