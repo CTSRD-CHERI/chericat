@@ -176,8 +176,13 @@ void get_elf_info(sqlite3 *db, Elf *elfFile, char *source, u_long source_base, s
 	scn = NULL;
 	bool seen_dynsym=0, seen_symtab=0;
 
-	char *insert_syms_query_values;
-	int query_values_index=0;
+	char *insert_syms_query_values = NULL;
+	size_t insert_syms_query_len = 0;
+	FILE *fp = open_memstream(&insert_syms_query_values,
+	    &insert_syms_query_len);
+	if (fp == NULL)
+		err(1, "failed to initialize memstream");
+	bool comma = false;
 
 	special_sections **ssect_cast = (special_sections **)ssect;
 
@@ -235,9 +240,9 @@ void get_elf_info(sqlite3 *db, Elf *elfFile, char *source, u_long source_base, s
 						offset &= ~1;
 					}
 
-					char* query_value;
-					asprintf(&query_value, 
-						"(\"%s\", \"%s\", \"0x%lx\", \"%3s\", \"%s\", \"%s\", \"0x%lx\")", 
+					fprintf(fp,
+						"%s(\"%s\", \"%s\", \"0x%lx\", \"%3s\", \"%s\", \"%s\", \"0x%lx\")", 
+							comma ? "," : "",
 							source,
 							symname,
 							sym.st_value,
@@ -245,32 +250,28 @@ void get_elf_info(sqlite3 *db, Elf *elfFile, char *source, u_long source_base, s
 							st_type(ehdr.e_machine, ehdr.e_ident[EI_OSABI], GELF_ST_TYPE(sym.st_info)),
 							st_bind(GELF_ST_BIND(sym.st_info)),
 							(source_base+offset));
-					if (query_values_index == 0) {
-						insert_syms_query_values = strdup(query_value);
-					} else {
-						char *temp;
-						asprintf(&temp, "%s,%s",
-							insert_syms_query_values,
-							query_value);
-						insert_syms_query_values = strdup(temp);
-						free(temp);
-					}
-					free(query_value);
-					query_values_index++;
+					comma = true;
 					
 					if ((i % 200) == 0) {
-						if (insert_syms_query_values != NULL) {
-							char query_hdr[] = "INSERT INTO elf_sym VALUES ";
-							char* query;
-							asprintf(&query, "%s%s;", query_hdr, insert_syms_query_values);
+						fclose(fp);
+						assert (insert_syms_query_len != 0);
+						char query_hdr[] = "INSERT INTO elf_sym VALUES ";
+						char* query;
+						asprintf(&query, "%s%s;", query_hdr, insert_syms_query_values);
 
-							int db_rc = sql_query_exec(db, query, NULL, NULL);
-							debug_print(TROUBLESHOOT, "Key Stage: Inserted sym info to the database (rc=%d)\n", db_rc);
+						int db_rc = sql_query_exec(db, query, NULL, NULL);
+						debug_print(TROUBLESHOOT, "Key Stage: Inserted sym info to the database (rc=%d)\n", db_rc);
 
-							insert_syms_query_values = NULL;
-							query_values_index = 0;
-							free(query);
-						}
+						free(query);
+						free(insert_syms_query_values);
+						insert_syms_query_values = NULL;
+						insert_syms_query_len = 0;
+						fp = open_memstream(
+						    &insert_syms_query_values,
+						    &insert_syms_query_len);
+						if (fp == NULL)
+							err(1, "failed to initialize memstream");
+						comma = false;
 					}
 
 				}
@@ -280,8 +281,9 @@ void get_elf_info(sqlite3 *db, Elf *elfFile, char *source, u_long source_base, s
 			break;
 		}
 	}
+	fclose(fp);
 	
-	if (insert_syms_query_values != NULL) {
+	if (insert_syms_query_len != 0) {
 		char query_hdr[] = "INSERT INTO elf_sym VALUES ";
 		char* query;
 		asprintf(&query, "%s%s;", query_hdr, insert_syms_query_values);
@@ -289,9 +291,9 @@ void get_elf_info(sqlite3 *db, Elf *elfFile, char *source, u_long source_base, s
 		int db_rc = sql_query_exec(db, query, NULL, NULL);
 		debug_print(TROUBLESHOOT, "Key Stage: Inserted sym info to the database (rc=%d)\n", db_rc);
 
-		free(insert_syms_query_values);
 		free(query);
 	}
+	free(insert_syms_query_values);
 	elf_end(elfFile);
 	
 }

@@ -38,6 +38,7 @@
 #include <stdlib.h>
 #include <assert.h>
 
+#include <err.h>
 #include <errno.h>
 #include <string.h>
 #include <sqlite3.h>
@@ -125,6 +126,12 @@ int get_tags(sqlite3 *db, int pid, u_long start, char *path)
 	// packing each 8 bits into a char, hence there are 32 bytes in the tagsbuf char array.
         if (retno == 0) {
 		char *insert_cap_query_values = NULL;
+		size_t insert_cap_query_len = 0;
+		FILE *fp = open_memstream(&insert_cap_query_values,
+		    &insert_cap_query_len);
+		if (fp == NULL)
+			err(1, "failed to initialize memstream");
+		bool comma = false;
 
         	for (int i=0; i<32; i++) {
 			char tags = tagsbuf[i];
@@ -151,18 +158,9 @@ int get_tags(sqlite3 *db, int pid, u_long start, char *path)
 						char *val;
 						get_capability(pid, (void*)tags_addr[j], cap_count, path, &val);
 						debug_print(VERBOSE, "Obtained cap values: %s\n", val);
-
-						if (insert_cap_query_values == NULL) {
-							insert_cap_query_values = (char*)malloc(sizeof(val));
-							assert(insert_cap_query_values != NULL);
-							insert_cap_query_values = strdup(val);
-						} else {
-							char *temp;
-							asprintf(&temp, "%s,%s", insert_cap_query_values, val);
-							insert_cap_query_values = strdup(temp);
-							
-							free(temp);
-						}
+						fprintf(fp, "%s%s",
+						    comma ? "," : "", val);
+						comma = true;
 						free(val);
 						// Maintain a count for each vm block.
 						cap_count++;
@@ -170,7 +168,8 @@ int get_tags(sqlite3 *db, int pid, u_long start, char *path)
 				}
 			}
         	}
-		if (insert_cap_query_values != NULL && insert_cap_query_values[0] != '\0') {
+		fclose(fp);
+		if (insert_cap_query_len != 0) {
 			char query_hdr[] = "INSERT INTO cap_info VALUES";
 			char *query;
 			asprintf(&query, "%s %s;", query_hdr, insert_cap_query_values);
@@ -178,8 +177,8 @@ int get_tags(sqlite3 *db, int pid, u_long start, char *path)
 			int db_rc = sql_query_exec(db, query, NULL, NULL);
 			debug_print(TROUBLESHOOT, "Key Stage: Inserted vm entry info to the database (rc=%d)\n", db_rc);
 			free(query);
-			free(insert_cap_query_values);
 		}
+		free(insert_cap_query_values);
 	} else { 
 		// This generates a lot of noise, useful for troubleshooting when needed
 		debug_print(TROUBLESHOOT, "ptrace(PT_IO) for PIOD_READ_CHERI_TAGS returned %d\n", retno);

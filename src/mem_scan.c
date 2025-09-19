@@ -114,7 +114,13 @@ void scan_mem(sqlite3 *db, int pid)
 
 	debug_print(TROUBLESHOOT, "Key Stage: Attach process %d using ptrace\n", pid);
 
-	char *insert_vm_query_values;
+	char *insert_vm_query_values = NULL;
+	size_t insert_vm_query_len = 0;
+	FILE *fp = open_memstream(&insert_vm_query_values,
+	    &insert_vm_query_len);
+	if (fp == NULL)
+		err(1, "failed to initialize memstream");
+	bool comma = false;
 
 	struct r_debug obtained_r_debug;
 	obtained_r_debug = get_r_debug(pid, psp, kipp);
@@ -178,13 +184,17 @@ void scan_mem(sqlite3 *db, int pid)
 			}
 		}
 		char *mmap_path = NULL;
+		size_t mmap_path_len = 0;
+		FILE *mmap_fp = open_memstream(&mmap_path, &mmap_path_len);
+		if (mmap_fp == NULL)
+			err(1, "failed to initialize memstream");
 
 		if (strlen(kivp->kve_path) == 0) {
 			int found=0;
 			for (int j=0; j<seen_index; j++) {
 
 				if (seen_kivp[j].kve_start == kivp->kve_reservation) {
-					mmap_path = strdup(seen_kivp[j].kve_path);
+					fprintf(mmap_fp, "%s", seen_kivp[j].kve_path);
 					found = 1;
 					break;
 				}
@@ -195,31 +205,26 @@ void scan_mem(sqlite3 *db, int pid)
 				// The mmap vm block is not within any of the loaded library range
 				// now try to "guess" where it belong by using the vnode information
 				if (kivp->kve_type == KVME_TYPE_GUARD) {
-					mmap_path = strdup("Guard");
+					fprintf(mmap_fp, "Guard");
 				} else if (kivp->kve_flags & KVME_FLAG_GROWS_DOWN) {
-					mmap_path = strdup("Stack");
+					fprintf(mmap_fp, "Stack");
 				} else {
-					mmap_path = strdup("Heap(others)");
+					fprintf(mmap_fp, "Heap(others)");
 				}
 			}
 		} else {
-			mmap_path = strdup(kivp->kve_path);
+			fprintf(mmap_fp, "%s", kivp->kve_path);
 		}
 
 		if (kivp->kve_start <= ssect[ssect_index-1].plt_addr &&
 			kivp->kve_end >= ssect[ssect_index-1].plt_addr+ssect[ssect_index-1].plt_size) {
-			char *new_path;
-			asprintf(&new_path, "%s(.plt)", mmap_path);
-			mmap_path = strdup(new_path);
-			free(new_path);
+			fprintf(mmap_fp, "(.plt)");
 		}
 		if (kivp->kve_start <= ssect[ssect_index-1].got_addr &&
 			kivp->kve_end >= ssect[ssect_index-1].got_addr+ssect[ssect_index-1].got_size) {
-			char *new_path;
-			asprintf(&new_path, "%s(.got)", mmap_path);
-			mmap_path = strdup(new_path);
-			free(new_path);
+			fprintf(mmap_fp, "(.got)");
 		}
+		fclose(mmap_fp);
 
 		compart_data_list *comparts_head = scanned_comparts;
 
@@ -243,8 +248,8 @@ void scan_mem(sqlite3 *db, int pid)
 			kivp->kve_flags,
 			kivp->kve_type);
 
-		char *query_value;
-		asprintf(&query_value, "(\"0x%lx\", \"0x%lx\", \"%s\", %d, %d, %d, %d)", 
+		fprintf(fp, "%s(\"0x%lx\", \"0x%lx\", \"%s\", %d, %d, %d, %d)",
+				comma ? "," : "",
 				kivp->kve_start,
 				kivp->kve_end,
 				mmap_path,
@@ -252,21 +257,7 @@ void scan_mem(sqlite3 *db, int pid)
 				kivp->kve_protection,
 				kivp->kve_flags,
 				kivp->kve_type);
-	
-		if (i == 0) {
-			insert_vm_query_values = (char*)malloc(sizeof(query_value));
-			assert(insert_vm_query_values != NULL);
-
-			insert_vm_query_values = strdup(query_value);
-		} else {
-			char *temp;
-			asprintf(&temp, "%s,%s", 
-				insert_vm_query_values,
-				query_value);
-			insert_vm_query_values = strdup(temp);
-			free(temp);
-		}
-		free(query_value);
+		comma = true;
 		
 		// Divide the vm block into 4k pages, and iterate each page to find the tags that reference each
 		// address within the same page.
@@ -279,19 +270,20 @@ void scan_mem(sqlite3 *db, int pid)
 		}
 		ptrace_detach(pid);
 	}
+	fclose(fp);
 	
 	free(seen_kivp);
 
-	if (insert_vm_query_values != NULL) {
+	if (insert_vm_query_len != 0) {
 		char query_hdr[] = "INSERT INTO vm(start_addr, end_addr, mmap_path, compart_id, kve_protection, mmap_flags, vnode_type) VALUES";
 		char *query;
 		asprintf(&query, "%s%s;", query_hdr, insert_vm_query_values);
 	
 		int db_rc = sql_query_exec(db, query, NULL, NULL);
 		debug_print(TROUBLESHOOT, "Key Stage: Inserted vm entry info to the database (rc=%d)\n", db_rc);
-		free(insert_vm_query_values);
 		free(query);
 	}
+	free(insert_vm_query_values);
 
 	// Also persist the bss, plt and got info for this source to the same elf_sym table
 	for (int i=0; i<ssect_index; i++) {
