@@ -12,4 +12,6 @@ LDADD+=      -lelf -lprocstat -lsqlite3 -lxo
 CFLAGS+=     -I${PREFIX}/include -I./includes -I${SRC_BASE}/libexec/rtld-elf -I${SRC_BASE}/libexec/rtld-elf/${ARCH} -L${PREFIX}/lib -DIN_RTLD -DCHERI_LIB_C18N
 .endif
 
+CFLAGS+=	-g
+
 .include <bsd.prog.mk>
