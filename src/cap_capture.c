@@ -132,7 +132,7 @@ int get_tags(sqlite3 *db, int pid, u_long start, char *path)
 			// Each "char tags" contains 8 tags with 1 bit each
 			uintptr_t tags_addr[8];
 
-			if ('0' != tags) { 
+			if (0 != tags) {
 				for (int j=0; j<8; j++) {
 					// Checking each tag bit, if it corresponds to a capability (1) or not (0)
 					int bit = tags & 1;
