@@ -268,6 +268,7 @@ void scan_mem(sqlite3 *db, int pid)
 				get_tags(db, pid, start, mmap_path);
 			}
 		}
+		free(mmap_path);
 		ptrace_detach(pid);
 	}
 	fclose(fp);
@@ -303,8 +304,10 @@ void scan_mem(sqlite3 *db, int pid)
 	
 		sql_query_exec(db, query, NULL, NULL);
 		free(query);
+		free(ssect[i].mmap_path);
 	}
 
+	free(ssect);
 	free(scanned_comparts);
 	procstat_freevmmap(psp, freep);
 	procstat_freeprocs(psp, kipp);
