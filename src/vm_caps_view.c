@@ -194,7 +194,7 @@ void vm_caps_view(sqlite3 *db)
 			
 		xo_emit("{:compart_id/%7d} ", vm_info_captured[i].compart_id);
 
-		char *filename = (char*)malloc(sizeof(vm_info_captured[i].mmap_path));
+		char *filename = NULL;
 		get_filename_from_path(vm_info_captured[i].mmap_path, &filename);			
 		xo_emit("{:mmap_path/%s}\n", filename);
 		free(filename);
