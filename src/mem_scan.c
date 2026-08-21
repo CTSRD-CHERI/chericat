@@ -163,6 +163,9 @@ void scan_mem(sqlite3 *db, int pid)
 			}
 
 			if (!seen) {
+				if (kivp->kve_path[0] != '/') {
+					continue;
+				}
 				if (seen_kivp_buffer_size == seen_kivp_buffer_capacity) {
 					seen_kivp_buffer_capacity *= 2;
 					seen_kivp = realloc(seen_kivp, seen_kivp_buffer_capacity*sizeof(struct kinfo_vmentry));
