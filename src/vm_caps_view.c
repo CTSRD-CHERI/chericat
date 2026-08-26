@@ -92,9 +92,11 @@ void vm_caps_view(sqlite3 *db)
 			"w" : "-");
 		xo_emit("{:exec/%s}", vm_info_captured[i].kve_protection & KVME_PROT_EXEC ?
 			"x" : "-");
-		xo_emit("{:read_cap/%s}", vm_info_captured[i].kve_protection & KVME_PROT_READ_CAP ? 
+		xo_emit("{:read_cap/%s}",
+			(vm_info_captured[i].kve_protection & (KVME_PROT_READ | KVME_PROT_CAP)) == (KVME_PROT_READ | KVME_PROT_CAP) ?
 			"R" : "-");
-		xo_emit("{:write_cap/%s} ", vm_info_captured[i].kve_protection & KVME_PROT_WRITE_CAP ? 
+		xo_emit("{:write_cap/%s} ",
+			(vm_info_captured[i].kve_protection & (KVME_PROT_WRITE | KVME_PROT_CAP)) == (KVME_PROT_WRITE | KVME_PROT_CAP) ?
 			"W" : "-");
 
 		uintptr_t start_addr = (uintptr_t)strtol(vm_info_captured[i].start_addr, NULL, 0);

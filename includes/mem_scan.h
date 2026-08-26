@@ -33,6 +33,7 @@
 #ifndef MEM_SCAN_H_
 #define MEM_SCAN_H_
 
+#include <stddef.h>
 #include <sqlite3.h>
 
 typedef uint16_t compart_id_t;
